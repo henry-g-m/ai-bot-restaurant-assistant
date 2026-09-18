@@ -1,0 +1,10 @@
+items:
+  - number: 1
+    name: Margherita Pizza
+    price: 9.50
+  - number: 2
+    name: Caesar Salad
+    price: 6.00
+  - number: 3
+    name: Coke
+    price: 2.50

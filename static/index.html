@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Restaurant Bot</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 2rem auto; padding: 0 1rem; }
+    #log { border: 1px solid #ccc; border-radius: 6px; padding: 1rem; height: 320px; overflow-y: auto; margin-bottom: 1rem; white-space: pre-wrap; }
+    .msg-user { color: #05386b; margin: 0.5rem 0; }
+    .msg-bot { color: #333; margin: 0.5rem 0; }
+    #form { display: flex; gap: 0.5rem; }
+    #input { flex: 1; padding: 0.5rem; }
+    #cart { margin-top: 1rem; font-size: 0.9rem; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>Restaurant Bot</h1>
+  <div id="log"></div>
+  <form id="form">
+    <input id="input" type="text" placeholder="Type a message..." autocomplete="off" />
+    <button type="submit">Send</button>
+  </form>
+  <div id="cart"></div>
+  <script src="app.js"></script>
+</body>
+</html>
