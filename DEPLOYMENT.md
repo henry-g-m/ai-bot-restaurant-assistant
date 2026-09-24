@@ -257,7 +257,32 @@ git push
 
 ## Clean Up
 
-To delete all resources:
+### Delete Old App Service (if migrating from App Service)
+
+Once the Container App is running and verified:
+
+```bash
+# Stop the App Service
+az webapp stop \
+  --name chat-bot-restaurant-egm \
+  --resource-group rg-chat-bot
+
+# Delete the App Service
+az webapp delete \
+  --name chat-bot-restaurant-egm \
+  --resource-group rg-chat-bot \
+  --yes
+
+# (Optional) Delete the App Service Plan if not used by other apps
+az appservice plan delete \
+  --name chat-bot-restaurant-egm-plan \
+  --resource-group rg-chat-bot \
+  --yes
+```
+
+### Delete All Container App Resources
+
+To delete all resources created by Terraform:
 
 ```bash
 cd deploy
