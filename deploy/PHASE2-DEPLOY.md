@@ -10,10 +10,10 @@ Deploy Phase 2 (multi-restaurant, document segregation, admin panel) to Azure.
 - Cosmos DB: `restaurant_bot` database with `documents` container (updated indexing policy)
 
 ## Pre-Deployment Checklist
-- [ ] All tests pass locally: `uv run pytest tests/ -q`
+- [ ] All tests pass locally: `pytest tests/ -q`
 - [ ] Manual testing complete: See `PHASE2-TESTING.md`
 - [ ] Git branch clean (all changes committed): `git status`
-- [ ] requirements.txt updated: `uv export --no-dev --format requirements-txt > requirements.txt`
+- [ ] requirements.txt exists (checked into git, no need to export)
 - [ ] Environment variables verified on App Service
 
 ## Step 1: Update Cosmos DB Vector Index Policy
@@ -58,23 +58,23 @@ az keyvault secret set \
   --value "your-secure-password-here"
 ```
 
-## Step 3: Export Dependencies
+## Step 3: Verify Requirements
 
-Update requirements.txt with pinned dependencies for Azure Oryx builder.
+Ensure requirements.txt exists and includes python-multipart (needed for file uploads).
 
 ```bash
-# From repo root
-uv export --no-dev --format requirements-txt > requirements.txt
-
-# Verify it includes python-multipart (needed for file uploads)
-grep python-multipart requirements.txt
+# From repo root, verify file exists
+test -f requirements.txt && grep python-multipart requirements.txt || echo "Missing or incomplete requirements.txt"
 ```
 
 ## Step 4: Deploy to Azure App Service
 
 ```bash
-# 1. Export pinned deps for Azure Oryx
-uv export --no-dev --format requirements-txt > requirements.txt
+# 1. Set KEY_VAULT_URL environment variable
+az webapp config appsettings set \
+  --name chat-bot-restaurant-egm \
+  --resource-group rg-chat-bot \
+  --settings KEY_VAULT_URL="https://restaurant-bot-kv.vault.azure.net/"
 
 # 2. Deploy the App Service (code will be pulled from git/zip)
 az webapp up \
@@ -84,11 +84,11 @@ az webapp up \
   --resource-group rg-chat-bot \
   --location eastus2
 
-# 3. Set the startup command (FastAPI doesn't auto-detect)
+# 3. Set the startup command (gunicorn + uvicorn worker)
 az webapp config set \
   --name chat-bot-restaurant-egm \
   --resource-group rg-chat-bot \
-  --startup-file "uvicorn restaurant_bot.main:app --host 0.0.0.0 --port 8000"
+  --startup-file "gunicorn --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 restaurant_bot.main:app"
 
 # 4. Ensure managed identity is enabled (for Key Vault access)
 az webapp identity assign \

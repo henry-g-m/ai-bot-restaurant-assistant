@@ -21,15 +21,13 @@ Features:
 
 
 
-Dependencies are managed with uv (pyproject.toml + uv.lock).
+Dependencies are managed with pip and pyproject.toml.
 
 
 Requirements
 ------------
-- uv (https://docs.astral.sh/uv/) — install it, then everything else
-  below is handled by uv itself.
-- Python >=3.12 (uv will fetch a matching interpreter automatically if
-  one isn't already installed).
+- Python >=3.12
+- pip (standard Python package manager)
 - ~2GB free disk space for the downloaded model (facebook/bart-large-mnli).
 
 
@@ -37,15 +35,15 @@ Setup
 -----
 From the repo root:
 
-     uv sync
+     pip install -e ".[dev]"
 
-This creates a .venv/ and installs everything pinned in uv.lock
-(fastapi, uvicorn, transformers, torch, pyyaml, pydantic).
+This installs the local package and all dependencies listed in pyproject.toml
+(fastapi, uvicorn, transformers, torch, pyyaml, pydantic, etc.).
 
 
 Running locally
 ----------------
-   uv run uvicorn restaurant_bot.main:app --reload
+   uvicorn restaurant_bot.main:app --reload
 
 Then open http://127.0.0.1:8000/ in a browser for the chat UI.
 
@@ -84,11 +82,79 @@ POST /scope-gate
 GET /
     Serves the static chat UI (static/index.html, static/app.js).
 
+GET /admin/status
+    Returns {"active_restaurant": "<name>", "menu_items_count": <int>}
+    Shows which restaurant is currently active and item count on its menu.
+
+POST /admin/switch-restaurant
+    Body:  {"restaurant": "<chinese|mexican>", "password": "<admin_password>"}
+    Switches the active restaurant (password-gated). Password is stored in 
+    Key Vault under secret name "admin-upload-password".
+
+GET /admin.html
+    Serves the admin panel UI (static/admin.html, static/admin.js).
+
+POST /documents
+    Multipart upload for RAG document indexing (password-gated).
+    Form data:
+      - file: <.txt or .pdf file>
+      - password: <admin_password>
+      - restaurant_id: <chinese|mexican|shared>
+    Extracts text, chunks it (~180 words per chunk), embeds with SentenceTransformer,
+    and stores in Cosmos DB with restaurant_id filter for segregated RAG queries.
+
+
+Phase 2 Features (Multi-Restaurant, Admin Panel, Conversational Bot)
+--------------------------------------------------------------------
+
+### Multi-Restaurant Support
+The bot now supports multiple restaurants (Chinese and Mexican) with:
+- **Per-restaurant menus:** data/menu_chinese.yaml and data/menu_mexican.yaml
+- **Per-restaurant personalities:** Chinese (eager to help, imperfect English accent),
+  Mexican (enthusiastic, playful, Spanish phrases)
+- **Per-restaurant replies:** Refusal and help text adapted to each restaurant
+- **Active restaurant state:** In-memory module variable, switched via /admin/switch-restaurant
+
+### Document Segregation & RAG
+Documents uploaded via the admin panel are stored in Cosmos DB with a restaurant_id
+field for segregation:
+- Documents tagged with a restaurant_id are only used by that restaurant's RAG
+- Documents tagged "shared" are accessible to all restaurants
+- Query filters: `WHERE restaurant_id = @restaurant_id OR restaurant_id = "shared"`
+
+### Admin Panel (http://localhost:8000/admin.html)
+Requires authentication with the admin password (from Key Vault).
+
+**Features:**
+- View current active restaurant and menu item count
+- Switch between Chinese and Mexican restaurants (requires password)
+- Upload document files (.txt or .pdf) for RAG knowledge base
+- Select restaurant for upload (specific or shared across all)
+- Monitor upload status with success/error messages
+
+### Conversational Bot
+The bot now handles both natural conversations and order actions:
+- **Greetings/Questions:** "Hi!" → conversational response
+- **Order Instructions:** "Add #1" → extract cart action
+- **Natural Language:** "I'd like kung pao chicken" → understands and adds to cart
+- **Intent detection uses LLM with optional tool use** (tool_choice="auto"):
+  - If the message is an order instruction, the LLM calls the cart_action tool
+  - If the message is a greeting or question, the LLM responds naturally
+  - Restaurant personality embedded in the system prompt
+
+### Customer UI Redesign
+- **Light theme** with modern, clean design
+- **Two-column layout:** Left side has navigation tabs, right side has chat
+- **Navigation tabs:** About, Menu, Hours, Contact, Reservations, Reviews (placeholders),
+  and Chat (fully functional)
+- **Dynamic header:** Shows active restaurant name and menu item count
+- **Admin link:** "System Admin?" link in footer for admin panel access
+
 
 Running tests
 -------------
-   uv sync --extra dev        (if pytest is declared as a dev dependency)
-   uv run pytest tests/ -q
+   pip install -e ".[dev]"
+   pytest tests/ -q
 
 First test run that touches the scope gate will also download the model
 (same one-time cost as above).
@@ -111,30 +177,24 @@ Deployment (Azure App Service)
 -------------------------------
 This deploys the app as-is to a Linux Python App Service, no Docker.
 
-1. Export a requirements.txt from the uv lockfile so Azure's Oryx
-   builder (which uses pip, not uv) can install the same pinned
-   versions:
+**Deployment** (basic chat bot + multi-restaurant with admin & RAG):
+See PLAN.md and deploy/PHASE2-DEPLOY.md for complete runbooks.
 
-     uv export --no-dev --format requirements-txt > requirements.txt
+Quick steps:
+1. az webapp config appsettings set ... (set KEY_VAULT_URL)
+2. az webapp up --runtime "PYTHON:3.12" --sku F1 --name <your-app-name>
+3. az webapp config set ... (set startup command via gunicorn + uvicorn worker)
+4. Enable system-assigned managed identity on App Service
+5. Grant "Key Vault Secrets User" role to the managed identity
 
-   Commit this file alongside pyproject.toml, or regenerate it right
-   before each deploy.
+For Cosmos DB setup, see deploy/azure/cosmos-setup.txt and deploy/azure/cosmos-setup-phase2.txt.
+For Key Vault setup, see deploy/azure/keyvault-setup.txt.
 
-2. Log in and deploy from the repo root:
-
-     az login
-     az webapp up --runtime "PYTHON:3.12" --sku B1 --name <your-app-name>
-
-3. Set the startup command (uvicorn isn't auto-detected the way
-   Flask/Django are):
-
-     az webapp config set --name <your-app-name> \
-         --resource-group <your-resource-group> \
-         --startup-file "uvicorn restaurant_bot.main:app --host 0.0.0.0 --port 8000"
-
-   (Also documented in deploy/azure/startup.txt.)
-
-4. Browse to https://<your-app-name>.azurewebsites.net/
+Test locally first:
+   pip install -e ".[dev]"
+   uvicorn restaurant_bot.main:app --reload
+   Navigate to http://localhost:8000/ for chat UI
+   Navigate to http://localhost:8000/admin.html for admin panel
 
 Known limitation: the first request after a cold start triggers the
 ~1.6GB model download from the Huggingface Hub. On a low-tier SKU (e.g.
@@ -166,19 +226,26 @@ template and fill in your vault:
 
      cp .env.example .env
 
-.env is gitignored — never commit it. Actual secrets (Cosmos DB
-endpoint/key, Azure OpenAI endpoint/key/deployment, admin upload
-password) are NOT stored in .env — they live in Azure Key Vault and are
-fetched at runtime via DefaultAzureCredential (see secrets.py). Locally,
-authenticate once with:
+.env is gitignored — never commit it. Actual secrets are NOT stored in .env —
+they live in Azure Key Vault and are fetched at runtime via DefaultAzureCredential
+(see secrets.py). Locally, authenticate once with:
 
      az login
 
-On Azure App Service, the app instead needs a system-assigned managed
-identity granted the "Key Vault Secrets User" role on the vault (a
-deployment-time step, not needed for local dev).
+**Phase 1 Required Secrets:**
+- cosmos-endpoint, cosmos-key (Cosmos DB)
+- azure-openai-endpoint, azure-openai-key, azure-openai-deployment (Azure OpenAI)
 
-See deploy/azure/keyvault-setup.txt for the full one-time setup
-(creating the vault, granting yourself access, and populating all six
-required secrets) and deploy/azure/cosmos-setup.txt for the Cosmos DB
-container + vector index setup.
+**Phase 2 Additional Secrets:**
+- admin-upload-password (password for admin panel access)
+
+On Azure App Service, the app needs a system-assigned managed identity granted
+the "Key Vault Secrets User" role on the vault (a deployment-time step, not
+needed for local dev).
+
+**Setup Documentation:**
+- Phase 1: See deploy/azure/keyvault-setup.txt for vault creation and secret setup
+- Phase 1: See deploy/azure/cosmos-setup.txt for Cosmos DB container + vector index
+- Phase 2: See deploy/azure/cosmos-setup-phase2.txt for restaurant_id schema update
+- Phase 2: See deploy/PHASE2-DEPLOY.md for full deployment runbook with managed
+  identity setup and Cosmos indexing policy updates

@@ -109,4 +109,4 @@ handling secret key material.
 7. Verify secrets are readable (from Python, once KEY_VAULT_URL is set
    and you're logged in via `az login`):
 
-     uv run python -c "from restaurant_bot import secrets; print(secrets.get_secret('cosmos-endpoint'))"
+     python -c "from restaurant_bot import secrets; print(secrets.get_secret('cosmos-endpoint'))"

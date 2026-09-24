@@ -3,7 +3,8 @@
 Complete this checklist before deploying Phase 2 to Azure.
 
 ## Setup
-- [ ] Start dev server: `uv run uvicorn restaurant_bot.main:app --reload`
+- [ ] Install dev dependencies: `pip install -e ".[dev]"`
+- [ ] Start dev server: `uvicorn restaurant_bot.main:app --reload`
 - [ ] Open browser to `http://localhost:8000/`
 - [ ] Verify app loads without errors
 - [ ] Check console for Key Vault connection warnings
@@ -199,7 +200,7 @@ curl -X POST http://localhost:8000/documents \
 
 ## Test Results Summary
 
-- [ ] All 68 unit tests pass: `uv run pytest tests/ -q`
+- [ ] All 68 unit tests pass: `pytest tests/ -q`
 - [ ] No Python errors or warnings in console
 - [ ] All endpoints respond with correct status codes
 - [ ] Database connections work (if using real Cosmos DB)
