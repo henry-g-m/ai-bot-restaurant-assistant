@@ -1,5 +1,6 @@
 import re
 
+from restaurant_bot import intent, rag
 from restaurant_bot.config import MENU_PATH
 from restaurant_bot.menu import load_menu
 from restaurant_bot.order import get_or_create_cart
@@ -57,11 +58,35 @@ def handle_message(session_id: str, message: str) -> str:
             return f"Added {quantity}x {item.name} to your cart."
         return HELP_TEXT
 
-    for item in menu.items:
-        if item.name.lower() in lowered:
-            match = re.search(r"\d+", lowered)
-            quantity = int(match.group()) if match else 1
+    #Quick match didn't work, try parsing the intent
+    result = intent.parse_intent(message, menu)
+    changes = []
+    for entry in result.get("items", []):
+        item = menu.find_by_number(entry.get("menu_item_number"))
+        if item is None:
+            continue
+        operation = entry.get("operation")
+        quantity = entry.get("quantity")
+
+        if operation == "add":
+            quantity = quantity or 1
             cart.add(item.name, item.price, quantity)
-            return f"Added {quantity}x {item.name} to your cart."
+            changes.append(f"Added {quantity}x {item.name}")
+        elif operation == "remove":
+            if quantity is None:
+                quantity = next((line.quantity for line in cart.items if line.name == item.name), 0)
+            if quantity > 0:
+                cart.remove(item.name, quantity)
+                changes.append(f"Removed {quantity}x {item.name}")
+        elif operation == "set_quantity" and quantity is not None:
+            cart.set_quantity(item.name, item.price, quantity)
+            changes.append(f"Set {item.name} to {quantity}x")
+
+    if changes:
+        return ", ".join(changes) + "."
+
+    answer = rag.answer_question(message)
+    if answer is not None:
+        return answer
 
     return HELP_TEXT

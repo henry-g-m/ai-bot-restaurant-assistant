@@ -9,6 +9,13 @@ dependencies = [
     "torch",
     "pyyaml",
     "pydantic",
+    "pypdf>=6.19.0",
+    "sentence-transformers>=6.1.0",
+    "azure-keyvault-secrets>=4.11.2",
+    "azure-identity>=1.25.3",
+    "azure-cosmos>=4.17.1",
+    "python-dotenv>=1.2.3",
+    "openai>=3.16.2",
 ]
 
 [dependency-groups]

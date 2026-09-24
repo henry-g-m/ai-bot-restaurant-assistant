@@ -3,8 +3,23 @@ AI Restaurant Ordering Bot (demo)
 
 A small FastAPI app that lets a user order food via chat. Messages are
 gated by a Huggingface zero-shot classifier so the bot only responds to
-restaurant/food-ordering requests; anything else is refused. This is a
-learning/demo project, not production software.
+restaurant/food-ordering requests; anything else is refused.
+Features:
+
+  The bot extracts a structured cart intent from free-form text using Azure OpenAI tool-calling.
+  - Prompt includes the actual numbered menu (#1 Margherita Pizza, #3 Coke, ...) so the model can only reference real items.
+  - Returns {"action": "add_item", "items": [{"menu_item_number": N, "quantity": Q}, ...]} or {"action": "none"}.
+  - Any exception (network, missing secrets, malformed response) degrades to {"action": "none"}
+
+  For a single-item substring-matching loop is replaced with a call to intent.parse_intent; each returned item is
+  re-validated against the real menu via menu.find_by_number before touching the cart — the LLM only ever points at a menu slot, it never supplies its own price or item text.
+  Multiple items in one message are all added, and the confirmation lists them all: "Added 1x Margherita Pizza, 2x Coke to your cart."
+
+  Examples —
+  "I feel like having the chicken pasta tonight, add to the order"
+  "I'll take a pizza and two cokes" correctly adds both lines"
+
+
 
 Dependencies are managed with uv (pyproject.toml + uv.lock).
 
@@ -142,3 +157,28 @@ Known limitations (by design, demo scope)
 - The classifier call is synchronous and blocks while running, so
   concurrent requests are effectively serialized. Fine for a demo, not
   for production load.
+
+Secrets and Credentials
+------------------------
+Non-secret local configuration (currently just the Key Vault URL) is
+read from a .env file in the repo root via python-dotenv. Copy the
+template and fill in your vault:
+
+     cp .env.example .env
+
+.env is gitignored — never commit it. Actual secrets (Cosmos DB
+endpoint/key, Azure OpenAI endpoint/key/deployment, admin upload
+password) are NOT stored in .env — they live in Azure Key Vault and are
+fetched at runtime via DefaultAzureCredential (see secrets.py). Locally,
+authenticate once with:
+
+     az login
+
+On Azure App Service, the app instead needs a system-assigned managed
+identity granted the "Key Vault Secrets User" role on the vault (a
+deployment-time step, not needed for local dev).
+
+See deploy/azure/keyvault-setup.txt for the full one-time setup
+(creating the vault, granting yourself access, and populating all six
+required secrets) and deploy/azure/cosmos-setup.txt for the Cosmos DB
+container + vector index setup.

@@ -27,6 +27,17 @@ class Cart:
                     self.items.remove(line)
                 return
 
+    def set_quantity(self, name: str, unit_price: float, quantity: int) -> None:
+        for line in self.items:
+            if line.name == name:
+                if quantity <= 0:
+                    self.items.remove(line)
+                else:
+                    line.quantity = quantity
+                return
+        if quantity > 0:
+            self.items.append(CartLine(name=name, unit_price=unit_price, quantity=quantity))
+
     def total(self) -> float:
         return sum(line.unit_price * line.quantity for line in self.items)
 

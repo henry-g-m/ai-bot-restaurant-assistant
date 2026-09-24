@@ -1,0 +1,112 @@
+Key Vault + Azure OpenAI setup for RAG
+========================================
+
+Discovered resources in your subscription (fe8033fc-9e03-4d85-a27c-3896a0de58b1):
+  Cosmos DB:      jira-vector-db (resource group agents-RAG)
+                  endpoint: https://jira-vector-db.documents.azure.com:443/
+  Azure OpenAI:   small-openai (resource group rg-chat-bot, region eastus2)
+                  endpoint: https://small-openai.openai.azure.com/
+                  no chat deployment exists yet — created in step 3 below
+  Key Vault:      none exists yet — created in step 1 below
+
+Run all of this yourself (not run by the assistant) since it involves
+handling secret key material.
+
+
+1. Create the Key Vault (name must be globally unique, 3-24 chars,
+   alphanumeric/hyphens — adjust if taken). Using RBAC authorization
+   (recommended over legacy access policies):
+
+     az keyvault create \
+       --name restaurant-bot-kv \
+       --resource-group rg-chat-bot \
+       --location westus2 \
+       --enable-rbac-authorization true
+
+   Grant yourself permission to manage secrets (RBAC can take a minute
+   or two to propagate):
+
+     az role assignment create \
+       --role "Key Vault Secrets Officer" \
+       --assignee enrique.garcia.mantilla@gmail.com \
+       --scope $(az keyvault show --name restaurant-bot-kv --resource-group rg-chat-bot --query id -o tsv)
+
+
+2. Set the Cosmos DB secrets (the key is fetched inline and piped
+   straight into Key Vault — it is never printed or saved to a file):
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name cosmos-endpoint \
+       --value "https://jira-vector-db.documents.azure.com:443/"
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name cosmos-key \
+       --value "$(az cosmosdb keys list --name jira-vector-db --resource-group agents-RAG --query primaryMasterKey -o tsv)"
+
+
+3. Create a chat deployment on the existing Azure OpenAI resource (no
+   deployment exists yet). gpt-4.1-mini is a reasonable low-cost choice
+   for a demo — check model availability in eastus2 first if this
+   fails:
+
+     az cognitiveservices account deployment create \
+       --name small-openai \
+       --resource-group rg-chat-bot \
+       --deployment-name gpt-4.1-mini \
+       --model-name gpt-4.1-mini \
+       --model-version "2024-07-18" \
+       --model-format OpenAI \
+       --sku-capacity 10 \
+       --sku-name Standard
+
+   (If the model/version combination is rejected, run
+   `az cognitiveservices account list-models --name small-openai
+   --resource-group rg-chat-bot -o table` to see what's actually
+   available in this account/region and adjust.)
+
+
+4. Set the Azure OpenAI secrets:
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name azure-openai-endpoint \
+       --value "https://small-openai.openai.azure.com/"
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name azure-openai-key \
+       --value "$(az cognitiveservices account keys list --name small-openai --resource-group rg-chat-bot --query key1 -o tsv)"
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name azure-openai-deployment \
+       --value "gpt-4.1-mini"
+
+
+5. Set the admin upload password (pick your own value):
+
+     az keyvault secret set \
+       --vault-name restaurant-bot-kv \
+       --name admin-upload-password \
+       --value "<choose-a-password>"
+
+
+6. Point the app at this vault. Set this env var before running locally:
+
+     export KEY_VAULT_URL="https://restaurant-bot-kv.vault.azure.net/"
+
+   (Windows PowerShell: $env:KEY_VAULT_URL = "https://restaurant-bot-kv.vault.azure.net/")
+
+   Local dev auth: run `az login` once (DefaultAzureCredential falls
+   back to your Azure CLI login). On Azure App Service deployment, the
+   app instead needs a system-assigned managed identity granted the
+   "Key Vault Secrets User" role on this vault — a deployment-time step,
+   not needed for local dev.
+
+
+7. Verify secrets are readable (from Python, once KEY_VAULT_URL is set
+   and you're logged in via `az login`):
+
+     uv run python -c "from restaurant_bot import secrets; print(secrets.get_secret('cosmos-endpoint'))"
