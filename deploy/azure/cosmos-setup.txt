@@ -1,0 +1,89 @@
+Cosmos DB setup for RAG vector search
+======================================
+
+One-time manual setup against the existing Azure Cosmos DB account.
+
+  Account name:    jira-vector-db
+  Resource group:  agents-RAG
+  (found via `az cosmosdb list --output table`)
+
+Verified against az CLI 2.89.1 (`az cosmosdb sql container create --help`).
+Flag names confirmed: --vector-embeddings (not --vector-embedding-policy)
+and --idx, which replaces the container's ENTIRE indexing policy (not a
+merge) — so the JSON below includes the full default indexing policy
+plus the vectorIndexes entry, not just the vector part.
+
+
+1. Enable the vector search capability on the account (skip if already
+   enabled — safe to run either way):
+
+     az cosmosdb update \
+       --resource-group agents-RAG \
+       --name jira-vector-db \
+       --capabilities EnableNoSQLVectorSearch
+
+
+2. Create the database (existing databases on this account: jira_db —
+   no name collision):
+
+     az cosmosdb sql database create \
+       --account-name jira-vector-db \
+       --resource-group agents-RAG \
+       --name restaurant_bot
+
+
+3. Create the container. Save these two files first:
+
+   vector-embeddings.json:
+   {
+     "vectorEmbeddings": [
+       {
+         "path": "/embedding",
+         "dataType": "float32",
+         "dimensions": 384,
+         "distanceFunction": "cosine"
+       }
+     ]
+   }
+
+   indexing-policy.json:
+   {
+     "indexingMode": "consistent",
+     "automatic": true,
+     "includedPaths": [{ "path": "/*" }],
+     "excludedPaths": [
+       { "path": "/embedding/*" },
+       { "path": "/\"_etag\"/?" }
+     ],
+     "vectorIndexes": [
+       { "path": "/embedding", "type": "flat" }
+     ]
+   }
+
+   Then create the container (partition key /source_filename). NOTE:
+   this Cosmos account is serverless (billed per-request, not
+   provisioned RU/s) — do NOT pass --throughput; serverless accounts
+   reject any offer-throughput setting on the container with a
+   BadRequest error:
+
+     az cosmosdb sql container create \
+       --account-name jira-vector-db \
+       --resource-group agents-RAG \
+       --database-name restaurant_bot \
+       --name documents \
+       --partition-key-path /source_filename \
+       --idx @indexing-policy.json \
+       --vector-embeddings @vector-embeddings.json
+
+
+4. Verify:
+
+Document schema (one item per chunk):
+{
+  "id": "<uuid>",
+  "source_filename": "menu-notes.pdf",
+  "chunk_index": 0,
+  "text": "chunk content...",
+  "embedding": [0.0123, -0.045, ...],   // length 384, matches EMBEDDING_DIM in config.py
+  "uploaded_at": "2026-09-18T12:00:00Z"
+}

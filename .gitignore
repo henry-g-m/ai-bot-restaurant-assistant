@@ -1,1 +1,40 @@
 /src/ai_bot_restaurant_assistant.egg-info/
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+
+# Terraform
+deploy/.terraform/
+deploy/.terraform.lock.hcl
+deploy/terraform.tfvars
+deploy/*.tfstate
+deploy/*.tfstate.*
+deploy/tfplan
+deploy/tfplan.json
+
+# Docker
+.dockerignore
+*.log

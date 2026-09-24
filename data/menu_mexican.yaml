@@ -1,0 +1,31 @@
+items:
+  - number: 1
+    name: Chicken Enchiladas
+    price: 12.00
+  - number: 2
+    name: Beef Tacos (3 pcs)
+    price: 10.50
+  - number: 3
+    name: Chiles Rellenos
+    price: 11.00
+  - number: 4
+    name: Vegetable Burrito
+    price: 9.50
+  - number: 5
+    name: Carne Asada
+    price: 14.00
+  - number: 6
+    name: Chile Rojo Soup
+    price: 5.50
+  - number: 7
+    name: Quesadilla (Cheese)
+    price: 8.00
+  - number: 8
+    name: Guacamole & Chips
+    price: 7.50
+  - number: 9
+    name: Churros (3 pcs)
+    price: 5.00
+  - number: 10
+    name: Agua Fresca
+    price: 3.00

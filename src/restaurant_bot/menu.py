@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Literal
 
 import yaml
 
@@ -33,3 +34,16 @@ def load_menu(path: str) -> Menu:
         data = yaml.safe_load(f)
     items = [MenuItem(number=i["number"], name=i["name"], price=i["price"]) for i in data["items"]]
     return Menu(items)
+
+
+_menu_cache: dict[str, Menu] = {}
+
+
+def get_menu_by_restaurant(restaurant: Literal["chinese", "mexican"]) -> Menu:
+    """Load and cache menu for a given restaurant."""
+    if restaurant not in _menu_cache:
+        from restaurant_bot.config import MENU_CHINESE_PATH, MENU_MEXICAN_PATH
+
+        path = MENU_CHINESE_PATH if restaurant == "chinese" else MENU_MEXICAN_PATH
+        _menu_cache[restaurant] = load_menu(path)
+    return _menu_cache[restaurant]

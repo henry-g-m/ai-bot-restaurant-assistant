@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin Panel - Restaurant Assistant</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      color: #333;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background: #ffffff;
+      min-height: 100vh;
+      padding: 2rem 1.5rem;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 2rem;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 1rem;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 1.8rem;
+      color: #1a1a1a;
+    }
+
+    header p {
+      margin: 0.5rem 0 0 0;
+      font-size: 0.9rem;
+      color: #666;
+    }
+
+    .panel-section {
+      margin-bottom: 2rem;
+      padding: 1.5rem;
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+
+    .panel-section h2 {
+      margin: 0 0 1rem 0;
+      font-size: 1.2rem;
+      color: #1a1a1a;
+    }
+
+    .status-info {
+      background: #ffffff;
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      border-left: 3px solid #2563eb;
+    }
+
+    .status-info p {
+      margin: 0.5rem 0;
+      font-size: 0.95rem;
+    }
+
+    .status-info strong {
+      color: #1a1a1a;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: #333;
+    }
+
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d0d0d0;
+      border-radius: 4px;
+      font-size: 0.95rem;
+      font-family: inherit;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: #2563eb;
+      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+    }
+
+    .button-group {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
+    button {
+      padding: 0.75rem 1.5rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.95rem;
+      transition: background 0.2s ease;
+      flex: 1;
+      min-width: 150px;
+    }
+
+    button:hover {
+      background: #1d4ed8;
+    }
+
+    button:active {
+      background: #1e40af;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .button-secondary {
+      background: #666;
+    }
+
+    .button-secondary:hover {
+      background: #555;
+    }
+
+    .message {
+      padding: 1rem;
+      border-radius: 4px;
+      margin-bottom: 1rem;
+      font-size: 0.95rem;
+    }
+
+    .message.success {
+      background: #d4edda;
+      border: 1px solid #c3e6cb;
+      color: #155724;
+    }
+
+    .message.error {
+      background: #f8d7da;
+      border: 1px solid #f5c6cb;
+      color: #721c24;
+    }
+
+    .message.loading {
+      background: #d1ecf1;
+      border: 1px solid #bee5eb;
+      color: #0c5460;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      overflow: hidden;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .file-input-label {
+      display: block;
+      padding: 0.75rem;
+      background: #f0f0f0;
+      border: 2px dashed #d0d0d0;
+      border-radius: 4px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: #666;
+    }
+
+    .file-input-wrapper input[type="file"] {
+      position: absolute;
+      left: -9999px;
+    }
+
+    .file-input-wrapper input[type="file"]:focus + .file-input-label {
+      border-color: #2563eb;
+      background: #f9f9f9;
+    }
+
+    .file-input-wrapper:hover .file-input-label {
+      border-color: #2563eb;
+      background: #f9f9f9;
+    }
+
+    #file-name {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    footer {
+      margin-top: 2rem;
+      padding-top: 1rem;
+      border-top: 1px solid #e0e0e0;
+      text-align: center;
+      font-size: 0.85rem;
+      color: #666;
+    }
+
+    footer a {
+      color: #2563eb;
+      text-decoration: none;
+    }
+
+    footer a:hover {
+      text-decoration: underline;
+    }
+
+    @media (max-width: 600px) {
+      .container { padding: 1.5rem 1rem; }
+      header h1 { font-size: 1.4rem; }
+      .button-group { flex-direction: column; }
+      button { min-width: auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🔧 Admin Panel</h1>
+      <p>Manage restaurants and upload documents</p>
+    </header>
+
+    <!-- Status Section -->
+    <div class="panel-section">
+      <h2>Current Status</h2>
+      <div class="status-info">
+        <p><strong>Active Restaurant:</strong> <span id="current-restaurant">Loading...</span></p>
+        <p><strong>Menu Items:</strong> <span id="menu-count">Loading...</span></p>
+      </div>
+    </div>
+
+    <!-- Restaurant Switcher -->
+    <div class="panel-section">
+      <h2>Switch Restaurant</h2>
+      <div class="form-group">
+        <label for="restaurant-select">Select Restaurant:</label>
+        <select id="restaurant-select">
+          <option value="chinese">🥢 Chinese</option>
+          <option value="mexican">🌮 Mexican</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label for="admin-password-switch">Admin Password:</label>
+        <input type="password" id="admin-password-switch" placeholder="Enter admin password" />
+      </div>
+      <div id="switch-message"></div>
+      <div class="button-group">
+        <button id="switch-button">Switch Restaurant</button>
+      </div>
+    </div>
+
+    <!-- Document Upload Section -->
+    <div class="panel-section">
+      <h2>Upload Documents</h2>
+      <p style="color: #666; font-size: 0.9rem; margin: 0 0 1rem 0;">
+        Upload text or PDF files to enhance the AI with your restaurant information. Documents are indexed and searchable.
+      </p>
+
+      <div class="form-group">
+        <label>Select File (TXT or PDF, max 5MB):</label>
+        <div class="file-input-wrapper">
+          <input type="file" id="file-input" accept=".txt,.pdf" />
+          <label for="file-input" class="file-input-label">📁 Choose file or drag & drop</label>
+        </div>
+        <span id="file-name"></span>
+      </div>
+
+      <div class="form-group">
+        <label for="restaurant-select-upload">Apply to Restaurant:</label>
+        <select id="restaurant-select-upload">
+          <option value="shared">🌍 Shared (All Restaurants)</option>
+          <option value="chinese">🥢 Chinese Only</option>
+          <option value="mexican">🌮 Mexican Only</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label for="admin-password-upload">Admin Password:</label>
+        <input type="password" id="admin-password-upload" placeholder="Enter admin password" />
+      </div>
+
+      <div id="upload-message"></div>
+      <div class="button-group">
+        <button id="upload-button" disabled>Upload Document</button>
+      </div>
+    </div>
+
+    <footer>
+      <p><a href="/">← Back to Chat</a></p>
+    </footer>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>

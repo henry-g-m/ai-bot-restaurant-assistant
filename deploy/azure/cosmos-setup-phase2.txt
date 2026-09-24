@@ -1,0 +1,78 @@
+Phase 2 - Cosmos DB Setup for Restaurant-ID Filtering
+
+This file documents the Cosmos DB schema updates needed for Phase 2 multi-restaurant support.
+
+CONTAINER SCHEMA UPDATE:
+The existing "documents" container in the "restaurant_bot" database needs a vector index policy update.
+
+Current documents container structure:
+{
+  "id": "chunk_123",
+  "source_filename": "menu.pdf",
+  "chunk_index": 0,
+  "text": "Item description...",
+  "embedding": [0.1, 0.2, ...],  // 384-dimensional vector
+  "uploaded_at": "2026-09-24T00:00:00Z",
+  "restaurant_id": "chinese"  // NEW: Added in Phase 2
+}
+
+PARTITION KEY:
+Path: /source_filename (unchanged from Phase 1)
+Note: restaurant_id is NOT the partition key; it's a document property used in queries.
+
+VECTOR INDEX POLICY:
+Apply this index policy to the container (replace existing):
+
+{
+  "indexingPolicy": {
+    "indexingMode": "consistent",
+    "includedPaths": [
+      {
+        "path": "/*"
+      }
+    ],
+    "excludedPaths": [
+      {
+        "path": "/\"_etag\"/?"
+      }
+    ],
+    "vectorIndexes": [
+      {
+        "path": "/embedding",
+        "kind": "hnsw",
+        "m": 4,
+        "efConstruction": 400,
+        "efSearch": 40
+      }
+    ]
+  }
+}
+
+QUERY FILTER:
+Existing queries now include restaurant_id filtering:
+  SELECT TOP @top_k c.text, c.source_filename, VectorDistance(c.embedding, @query_vector) AS score
+  FROM c
+  WHERE c.restaurant_id = @restaurant_id OR c.restaurant_id = 'shared'
+  ORDER BY VectorDistance(c.embedding, @query_vector)
+
+MIGRATION STEPS (if updating from Phase 1):
+1. Existing documents will have no restaurant_id field (treat as "shared")
+2. New uploads will include restaurant_id field
+3. Optional: Run migration script to add restaurant_id="shared" to existing documents
+
+az cosmosdb sql container update \
+  --account-name <cosmos-account> \
+  --database-name restaurant_bot \
+  --name documents \
+  --resource-group rg-chat-bot \
+  --idx @cosmos-index-policy.json
+
+VERIFICATION:
+az cosmosdb sql container show \
+  --account-name <cosmos-account> \
+  --database-name restaurant_bot \
+  --name documents \
+  --resource-group rg-chat-bot \
+  --query "resource.indexingPolicy"
+
+Should show vectorIndexes with path "/embedding" and kind "hnsw".

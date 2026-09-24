@@ -1,0 +1,19 @@
+# Example Terraform variables file
+# Copy to terraform.tfvars and fill in your actual values
+
+subscription_id = "your-subscription-id-here"
+environment     = "dev"
+location        = "eastus"
+
+# Reference your existing Key Vault
+key_vault_id  = "/subscriptions/your-subscription-id/resourceGroups/your-rg/providers/Microsoft.KeyVault/vaults/your-keyvault-name"
+key_vault_url = "https://your-keyvault-name.vault.azure.net/"
+
+# Container configuration
+container_cpu    = "0.5"
+container_memory = "1.0Gi"
+min_replicas     = 1
+max_replicas     = 3
+
+# Optional: specify a subnet for Container Apps infrastructure (leave empty for public)
+container_app_subnet_id = ""

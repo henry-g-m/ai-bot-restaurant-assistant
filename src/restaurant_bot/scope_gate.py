@@ -3,8 +3,8 @@ import threading
 from transformers import pipeline
 
 from restaurant_bot.config import MODEL_NAME
-
-_LABELS = ["ordering food at a restaurant", "something unrelated to ordering food"]
+#See the hyptothesis_template, below. Is formulated as "This text is about {}." where the {} is replaced with the label. The model will then output a score for each label based on how well the text fits that label.
+_LABELS = ["a restaurant, food, or ordering topic. Or includes a greeting and farewell", "a topic unrelated to a restaurant or menu"]
 
 _classifier = None
 _classifier_lock = threading.Lock()
@@ -21,7 +21,11 @@ def _get_classifier():
 
 
 def is_in_scope(text: str) -> bool:
-    result = _get_classifier()(text, _LABELS, multi_label=False)
+    #Muli_label=false means the scores are normalized to sum to 1. If 'true', the scores are independent and can sum to more than 1.
+    result = _get_classifier()(
+        text, _LABELS, multi_label=False, hypothesis_template="This text is about {}."
+    )
+    print(f"Text: {text} | Scores: {result['scores']}")
     return result["labels"][0] == _LABELS[0]
 
 
