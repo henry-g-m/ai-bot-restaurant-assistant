@@ -43,3 +43,36 @@ def test_answer_question_returns_none_on_generation_error(mock_embed, mock_query
             result = rag.answer_question("What ingredients are in the salad?")
 
     assert result is None
+
+
+@patch("restaurant_bot.rag.vector_store.query_similar", return_value=[{"text": "Some context chunk."}])
+@patch("restaurant_bot.rag.embeddings.embed", return_value=[0.1, 0.2])
+def test_answer_question_passes_restaurant_id_to_vector_store(mock_embed, mock_query):
+    fake_response = MagicMock()
+    fake_response.choices[0].message.content = "Answer"
+
+    with patch.object(rag, "_get_client") as mock_get_client:
+        mock_get_client.return_value.chat.completions.create.return_value = fake_response
+        with patch("restaurant_bot.rag.secrets.get_secret", return_value="fake-deployment"):
+            rag.answer_question("Test question", restaurant_id="mexican")
+
+    mock_query.assert_called_once()
+    call_args = mock_query.call_args
+    assert call_args[1]["restaurant_id"] == "mexican"
+
+
+@patch("restaurant_bot.rag.vector_store.query_similar", return_value=[{"text": "Some context chunk."}])
+@patch("restaurant_bot.rag.embeddings.embed", return_value=[0.1, 0.2])
+def test_answer_question_uses_restaurant_specific_system_prompt(mock_embed, mock_query):
+    fake_response = MagicMock()
+    fake_response.choices[0].message.content = "Answer"
+
+    with patch.object(rag, "_get_client") as mock_get_client:
+        mock_get_client.return_value.chat.completions.create.return_value = fake_response
+        with patch("restaurant_bot.rag.secrets.get_secret", return_value="fake-deployment"):
+            rag.answer_question("Test question", restaurant_id="mexican")
+
+    call_args = mock_get_client.return_value.chat.completions.create.call_args
+    messages = call_args[1]["messages"]
+    system_message = messages[0]["content"]
+    assert "Mexican" in system_message

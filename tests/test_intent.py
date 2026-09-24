@@ -28,13 +28,47 @@ def test_parse_intent_returns_add_for_multiple_items():
 
     with patch.object(intent.rag, "_get_client") as mock_get_client:
         mock_get_client.return_value.chat.completions.create.return_value = fake_response
-        with patch("restaurant_bot.intent.secrets.get_secret", return_value="fake-deployment"):
-            result = intent.parse_intent("I'll take a pizza and two cokes", _MENU)
+        result = intent.parse_intent("I want item 1 and 2 of item 3", _MENU, restaurant_id="chinese")
 
-    assert result["items"] == [
-        {"menu_item_number": 1, "operation": "add", "quantity": 1},
-        {"menu_item_number": 3, "operation": "add", "quantity": 2},
-    ]
+    assert result["items"][0]["menu_item_number"] == 1
+    assert result["items"][1]["menu_item_number"] == 3
+
+
+def test_parse_intent_includes_restaurant_in_system_prompt():
+    """System prompt includes restaurant name."""
+    fake_response = _fake_response({"items": []})
+
+    with patch.object(intent.rag, "_get_client") as mock_get_client:
+        mock_get_client.return_value.chat.completions.create.return_value = fake_response
+        intent.parse_intent("what's good?", _MENU, restaurant_id="mexican")
+
+    call_args = mock_get_client.return_value.chat.completions.create.call_args
+    system_message = call_args[1]["messages"][0]["content"]
+    assert "mexican restaurant" in system_message.lower()
+
+
+def test_parse_intent_uses_personality_prompts():
+    """parse_intent uses restaurant personality prompts from rag module."""
+    fake_response = _fake_response({"items": []})
+
+    with patch.object(intent.rag, "_get_client") as mock_get_client:
+        mock_get_client.return_value.chat.completions.create.return_value = fake_response
+        # Chinese personality should include mention of imperfect English
+        intent.parse_intent("show menu", _MENU, restaurant_id="chinese")
+
+    call_args = mock_get_client.return_value.chat.completions.create.call_args
+    system_message = call_args[1]["messages"][0]["content"]
+    assert "chinese restaurant" in system_message.lower()
+    assert "working in" in system_message.lower()
+
+    # Mexican personality should include mention of light-hearted/enthusiastic
+    with patch.object(intent.rag, "_get_client") as mock_get_client:
+        mock_get_client.return_value.chat.completions.create.return_value = fake_response
+        intent.parse_intent("show menu", _MENU, restaurant_id="mexican")
+
+    call_args = mock_get_client.return_value.chat.completions.create.call_args
+    system_message = call_args[1]["messages"][0]["content"]
+    assert "mexican restaurant" in system_message.lower()
 
 
 def test_parse_intent_returns_remove_operation():

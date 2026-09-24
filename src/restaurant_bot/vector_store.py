@@ -20,7 +20,9 @@ def _get_container():
     return _container
 
 
-def upsert_chunk(chunk_id: str, source_filename: str, chunk_index: int, text: str, embedding: list[float], uploaded_at: str) -> None:
+def upsert_chunk(
+    chunk_id: str, source_filename: str, chunk_index: int, text: str, embedding: list[float], uploaded_at: str, restaurant_id: str = "shared"
+) -> None:
     _get_container().upsert_item(
         {
             "id": chunk_id,
@@ -29,19 +31,22 @@ def upsert_chunk(chunk_id: str, source_filename: str, chunk_index: int, text: st
             "text": text,
             "embedding": embedding,
             "uploaded_at": uploaded_at,
+            "restaurant_id": restaurant_id,
         }
     )
 
 
-def query_similar(query_embedding: list[float], top_k: int) -> list[dict]:
+def query_similar(query_embedding: list[float], top_k: int, restaurant_id: str = "shared") -> list[dict]:
     query = (
         "SELECT TOP @top_k c.text, c.source_filename, "
         "VectorDistance(c.embedding, @query_vector) AS score "
-        "FROM c ORDER BY VectorDistance(c.embedding, @query_vector)"
+        "FROM c WHERE c.restaurant_id = @restaurant_id OR c.restaurant_id = 'shared' "
+        "ORDER BY VectorDistance(c.embedding, @query_vector)"
     )
     parameters = [
         {"name": "@top_k", "value": top_k},
         {"name": "@query_vector", "value": query_embedding},
+        {"name": "@restaurant_id", "value": restaurant_id},
     ]
     return list(
         _get_container().query_items(query=query, parameters=parameters, enable_cross_partition_query=True)

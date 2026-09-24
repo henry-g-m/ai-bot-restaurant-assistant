@@ -180,3 +180,84 @@ az cognitiveservices account update --name small-openai --resource-group rg-chat
 ```
 
 If quota is ever requested again for a similar resource, note that `az quota show/update --scope subscriptions/<id>/providers/Microsoft.Web/locations/<region>` (the `quota` CLI extension, after `az provider register --namespace Microsoft.Quota`) can at least *read* current limits instantly — useful for confirming a Portal-submitted request has landed without waiting on a notification.
+
+---
+
+## Phase 2: Multi-Restaurant UI, Document Segregation, Admin Panel
+
+**Status: Design Complete (2026-09-24), Ready for Implementation**
+
+### Overview
+Phase 2 adds multi-restaurant support (Chinese/Mexican) with separate menus, bot personalities, and RAG document segregation. System admin can switch active restaurant and upload documents via admin panel. Customer-facing UI redesigned with light theme, 6 placeholder sections, and clear separation from admin interface.
+
+### Key Decisions (Confirmed 2026-09-24)
+1. **Restaurant Switching:** Single active restaurant (in-memory module variable, resets on restart — acceptable for demo/admin)
+2. **Bot Personality:** Full per-restaurant persona (hardcoded reply strings in bot.py + system prompt in rag.py, not just RAG-generated)
+3. **Menus:** Two fixed YAML files (data/menu_chinese.yaml, data/menu_mexican.yaml), admin selects active one
+4. **Document Segregation:** One Cosmos container, restaurant_id field + "shared" value for cross-restaurant docs (policies, hours). Query filter: `WHERE restaurant_id = @restaurant_id OR restaurant_id = "shared"`
+5. **Customer UI:** Light theme, 6 placeholder tabs (About, Menu Preview, Locations/Hours, Contact, Reservations, Reviews), Chat tab is only working section, "System Admin?" link in footer
+6. **Admin Auth:** Password stored in Key Vault (admin-upload-password secret), verified on /documents upload and /admin/switch-restaurant endpoints
+
+### 32-Step Implementation Plan (9 Phases)
+
+#### Phase 2.1: Infrastructure & Data Model
+- **admin.py** (NEW, ~30 LOC): Module-level `_active_restaurant` variable, getter/setter with validation
+- **data/menu_chinese.yaml** (NEW): 8-10 Chinese dishes, numbers 1-10, prices $7-15
+- **data/menu_mexican.yaml** (NEW): 8-10 Mexican dishes, numbers 1-10, prices $8-14
+- **menu.py** (MODIFY, +15 LOC): Add `_menu_cache` dict, new `get_menu_by_restaurant(restaurant: str) -> Menu`
+- **config.py** (MODIFY, +5 LOC): Add MENU_CHINESE_PATH, MENU_MEXICAN_PATH constants
+
+#### Phase 2.2: Vector Store & RAG Personality
+- **vector_store.py** (MODIFY, +10 LOC): Add `restaurant_id: str` param to upsert_chunk() and query_similar(); WHERE clause filters by restaurant_id + "shared"
+- **rag.py** (MODIFY, +25 LOC): Pass restaurant_id through; create `_RESTAURANT_PERSONALITIES` dict; build restaurant-specific system prompt
+
+#### Phase 2.3: Bot Personality
+- **bot.py** (MODIFY, +40 LOC): Add `restaurant_id: str` param to handle_message(); create `_RESTAURANT_REPLIES` dict; use get_menu_by_restaurant(); replace hardcoded reply strings
+- **intent.py** (MODIFY optional, +5 LOC): Add restaurant_id param; enhance system prompt with restaurant name
+
+#### Phase 2.4: Backend API (main.py)
+- Add `_verify_admin_password(password: str) -> bool` helper
+- Add Pydantic models for auth requests/responses
+- **POST /documents** (~60 LOC): Multipart upload (file, password, restaurant_id). Validates auth, file type, size. Extracts, chunks, embeds, upserts with restaurant_id.
+- **POST /admin/switch-restaurant**: Toggle active restaurant (password-gated)
+- **GET /admin/status**: Return {active_restaurant, menu_items_count} (public, no auth)
+- **MODIFY GET /menu**: Use active restaurant to select menu
+- **MODIFY POST /chat**: Pass active restaurant to bot.handle_message()
+- **MODIFY on_startup()**: Pre-load menus, verify admin password in Key Vault (fail-fast)
+
+#### Phase 2.5: Frontend Redesign (Customer UI)
+- **static/index.html** (REPLACE, ~150 LOC): Light theme, header with restaurant name, 6 nav tabs, Chat (active) + placeholders, footer with "System Admin?" link
+
+#### Phase 2.6: Frontend Logic (JavaScript)
+- **static/app.js** (MODIFY, +60 LOC): Tab switching, fetch restaurant name + menu preview
+- **static/admin.js** (NEW, ~120 LOC): Upload form + toggle buttons with password auth
+
+#### Phase 2.7: Testing
+- **tests/test_admin.py** (NEW): State management (get/set, validation)
+- **tests/test_vector_store.py** (NEW/EXTEND): Mock Cosmos, verify restaurant_id filtering
+- **tests/test_rag.py** (MODIFY, +30 LOC): Verify restaurant_id passed, system prompt includes restaurant name
+- **tests/test_bot.py** (MODIFY, +40 LOC): Verify menu + replies differ per restaurant
+- **tests/test_menu.py** (MODIFY, +20 LOC): Test get_menu_by_restaurant()
+
+#### Phase 2.8: Integration & Deployment Prep
+- Manual E2E test (local): chat, menu preview, admin upload, restaurant toggle
+- Full regression: `pytest tests/ -v`
+- Export requirements.txt for Azure Oryx
+- Manual Cosmos indexing policy update for restaurant_id
+
+#### Phase 2.9: Documentation
+- Update PLAN.md with Phase 2 summary
+- Update README.md with admin features guide
+
+### Effort & Complexity
+- **Total:** ~700 LOC added (6 new files, ~14 modified)
+- **Complexity:** ~150 LOC LOW, ~550 LOC MEDIUM, HIGH effort on regression/E2E testing
+- **Risk:** LOW (new code isolated, backward-compatible, no breaking changes)
+
+### Critical Files
+admin.py, menu_*.yaml, menu.py, vector_store.py, rag.py, bot.py, main.py, index.html, admin.html, app.js, admin.js
+
+### Next Steps
+1. Next Claude session starts with this PLAN.md as context
+2. Implement Phase 2.1 through 2.9 following dependency order
+3. Run full test suite + manual E2E before committing Phase 2

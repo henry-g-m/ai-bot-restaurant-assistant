@@ -1,0 +1,31 @@
+items:
+  - number: 1
+    name: Kung Pao Chicken
+    price: 10.50
+  - number: 2
+    name: Mapo Tofu
+    price: 9.00
+  - number: 3
+    name: General Tso's Chicken
+    price: 11.50
+  - number: 4
+    name: Vegetable Fried Rice
+    price: 8.00
+  - number: 5
+    name: Shrimp Lo Mein
+    price: 12.00
+  - number: 6
+    name: Peking Duck
+    price: 14.50
+  - number: 7
+    name: Egg Drop Soup
+    price: 4.50
+  - number: 8
+    name: Spring Rolls (4 pcs)
+    price: 6.50
+  - number: 9
+    name: Fried Wonton (8 pcs)
+    price: 5.00
+  - number: 10
+    name: Fortune Cookies
+    price: 2.00

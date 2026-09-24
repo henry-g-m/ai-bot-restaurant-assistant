@@ -3,8 +3,8 @@ import threading
 from transformers import pipeline
 
 from restaurant_bot.config import MODEL_NAME
-
-_LABELS = ["a restaurant, food, or ordering topic", "a topic unrelated to a restaurant or menu"]
+#See the hyptothesis_template, below. Is formulated as "This text is about {}." where the {} is replaced with the label. The model will then output a score for each label based on how well the text fits that label.
+_LABELS = ["a restaurant, food, or ordering topic. Or includes a greeting and farewell", "a topic unrelated to a restaurant or menu"]
 
 _classifier = None
 _classifier_lock = threading.Lock()

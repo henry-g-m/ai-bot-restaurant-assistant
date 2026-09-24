@@ -16,6 +16,7 @@ dependencies = [
     "azure-cosmos>=4.17.1",
     "python-dotenv>=1.2.3",
     "openai>=3.16.2",
+    "python-multipart>=0.0.7",
 ]
 
 [dependency-groups]

@@ -5,7 +5,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 MODEL_NAME = "facebook/bart-large-mnli"
-MENU_PATH = "data/menu.yaml"
+MENU_PATH = "data/menu.yaml"  # Deprecated: kept for backward compatibility
+MENU_CHINESE_PATH = "data/menu_chinese.yaml"
+MENU_MEXICAN_PATH = "data/menu_mexican.yaml"
 
 CHUNK_TARGET_WORDS = 180
 ALLOWED_UPLOAD_EXTENSIONS = {".txt", ".pdf"}
