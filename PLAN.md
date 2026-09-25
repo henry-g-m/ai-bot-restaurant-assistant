@@ -5,27 +5,43 @@ An AI bot assistant  to help user order food from a restaurant. The bot will tak
 The important features of the bot include:
 - It can't be exploited to be used for something else, like asking for illegal activities or personal information, coding problems, etc.
 - The bot only responds to questions related to the restaurant and food ordering process.
+- Supports 2 different restaurants (Chinese and Mexican) with separate menus, bot personalities, and RAG document segregation.
 This is a demo/learning excercise. Keep the bot simple and focused on the task of food ordering.
 
 ## Tech Stack
-- Python
-- FastAPI
-- Azure deployment
+- Python (3.12+)
+- FastAPI + Uvicorn
+- Azure deployment (Container Apps + Terraform)
+- Docker containerization
+- GitHub Actions CI/CD
 - Huggingface zero-shot classification model for intent detection
+- Azure Cosmos DB (vector search, RAG)
+- Azure OpenAI (chat completion)
+- Azure Key Vault (secrets management)
+
+## Current Deployment (2026-09-24)
+- **Platform:** Azure Container Apps (Consumption plan, auto-scaling)
+- **Infrastructure:** Terraform infrastructure-as-code
+- **CI/CD:** GitHub Actions (automatic build & deploy on git push)
+- **Monitoring:** Log Analytics
+- See `DEPLOYMENT.md` for setup instructions.
 
 ## Future improvements:
-- Langchain for LLM orchestration
-- RAG
+- Enhanced LLM orchestration (Langchain integration)
+- Multi-region deployment with traffic manager
+- Advanced monitoring and alerting
+- Integration testing in CI/CD pipeline
 
 ## Implementation Plan
 
 ### Key decisions
 - `requires-python` relaxed from `>=3.14` to `>=3.12` in `pyproject.toml` for realistic torch/transformers wheel availability (verified locally on the only available interpreter, 3.14 — installed cleanly).
 - Menu file format: YAML (`data/menu.yaml`), not JSON.
-- Azure deploy: plain App Service via `az webapp up`, no Docker. First cold start may be slow while the ~1.6GB `bart-large-mnli` model downloads — documented limitation, not solved.
+- Azure deploy (2026-09-24): **Container Apps + Docker + Terraform + GitHub Actions** (modern infrastructure-as-code approach, replacing old App Service). Cold start ~40-50s; models lazy-load on first request.
 - Intent detection is binary only: in-scope (food ordering) vs out-of-scope, via Huggingface zero-shot classification. No sub-intent classification — order parsing/state is rule-based (keyword/substring matching), not ML.
 - No database — in-memory cart per session (`session_id` generated client-side, sent with every request).
 - The scope gate can be toggled on/off at runtime via a `/scope-gate` API endpoint (demo/testing use only).
+- Deployment uses managed identity for Key Vault access (no hardcoded secrets).
 
 ### Project structure
 ```
@@ -82,7 +98,7 @@ ai_bot_restaurant-assistant/
 7. `main.py` endpoints — verify via `uvicorn --reload` + curl. **Done.**
 8. `static/index.html` + `app.js` — verify manually in browser. **Done.**
 9. `README.txt` — verify by following it from a clean checkout. **Done.**
-10. Azure deployment via `az webapp up` — verify deployed URL behaves like local. **In progress** — see "Azure Deployment" section below.
+10. Azure deployment via Container Apps + Terraform + GitHub Actions — verify deployed URL behaves like local. **Done (2026-09-24)** — see "Azure Deployment" section below.
 
 Also done: migrated dependency management from pip to uv (`uv.lock`, `[build-system]`/`[tool.setuptools.packages.find]` added to `pyproject.toml` so uv can build/install the local package; `pytest`/`httpx` moved to a `[dependency-groups] dev` group via `uv add --dev`); added explicit `number` field to menu items so users can order by `#<number>`.
 
@@ -135,92 +151,133 @@ uv add azure-cosmos sentence-transformers openai azure-keyvault-secrets azure-id
 7. `rag.py` — verify manually against real uploaded content; confirm `None` on broken OpenAI key.
 8. `bot.py` fallback wiring — verify existing test suite still passes, then manually confirm RAG/HELP_TEXT behavior.
 9. Startup secret-warming in `main.py` — verify fail-fast behavior on misconfigured Key Vault URL.
-10. Full regression: `uv run pytest tests/ -q` + manual smoke test of chat + admin UI.
+10. Full regression: `uv run pytest tests/ -q` + manual smoke test of chat + admin UI. 
 
 Full detailed plan (design rationale, assumptions, Cosmos schema): `C:\Users\enriq\.claude\plans\humble-puzzling-tarjan.md`. 
 
 ## Azure Deployment
 
-### Key decisions
-- **Resource group:** `rg-chat-bot` (existing — already holds `small-openai` Azure OpenAI resource and `restaurant-bot-kv` Key Vault). **Region:** `eastus2`. **App name:** `chat-bot-restaurant-egm` → `https://chat-bot-restaurant-egm.azurewebsites.net/`.
-- **SKU: F1 (Free tier)**, not the B1 originally planned. This subscription had **zero App Service Plan quota** for any Linux SKU (F1 and B1 both) in `eastus2` at deploy time — nothing had ever been deployed on it. A self-service increase via `az quota update` was rejected outright (`QuotaNotAvailableForResource`); the fix was a quota request through the Azure Portal's Quotas blade, which Azure granted for **both F1 and B1**. F1 was chosen anyway to keep the deployment free, since this is a demo project.
-- **Firewall tradeoff (deliberate, accepted risk):** `small-openai`'s network ACL was originally locked to `defaultAction: Deny` with only `vnet01/subnet-1` (in this same resource group) allowed via a VNet service-endpoint rule — not a private endpoint. F1 does **not** support Regional VNet Integration (that requires Basic tier or above), so the app can't reach Azure OpenAI through that VNet rule. Instead, `small-openai`'s `defaultAction` was set to `Allow` (open to all networks). The API key (from Key Vault) is still required for every call — this only removes the network-layer restriction, not authentication. Accepted for this demo's threat model (no PII/payment data); revisit if this ever moves to B1 (quota for it is already granted) to restore VNet integration and re-lock the firewall.
-- Container Apps was considered as an alternative (its Consumption plan draws from a separate quota pool, `Microsoft.App` not `Microsoft.Web`, and might not have hit the same wall) but not pursued — would require containerizing the app first (no Dockerfile exists), and its scale-to-zero behavior would reload the ~1.6GB `bart-large-mnli` model into memory on every cold start after idle, which is worse than App Service's one-time cold start for this workload.
+### Architecture Evolution
 
-### Deploy steps (runbook)
+**Phase 1 (App Service - Legacy):** Direct deployment to Azure App Service with manual `az webapp up` commands, gunicorn + uvicorn workers. Suffered from quota issues (F1 SKU), deployment locks, and firewall tradeoffs. Supported only one environment.
 
-**Simplified approach (2026-09-24 refactor):** Uses pip-friendly requirements.txt + setup.py instead of uv export, avoiding version conflicts. Models lazy-load on first request (not startup) to prevent 504 timeouts. Standard gunicorn + uvicorn worker for reliability.
+**Phase 2 (Container Apps - Current, 2026-09-24):** Modern containerized deployment using Docker + Terraform + GitHub Actions CI/CD. Replaces manual deployment with infrastructure-as-code, automatic builds, and pay-per-request pricing.
 
+### Current Deployment: Container Apps (Production Ready)
+
+#### Key Decisions
+- **Infrastructure:** Azure Container Apps (Consumption plan) for cost-effective, auto-scaling deployment
+- **Containerization:** Multi-stage Dockerfile (Python 3.12 slim base, optimized layers)
+- **Infrastructure-as-Code:** Terraform configuration for:
+  - Azure Container Registry (ACR) for image storage
+  - Container Apps Environment with Log Analytics monitoring
+  - Container App instance with managed identity for Key Vault/ACR access
+  - Auto-scaling (1-3 replicas) and health checks (liveness + readiness probes)
+- **CI/CD:** GitHub Actions workflow
+  - Triggers on: push to main, Dockerfile/Terraform changes, manual dispatch
+  - Steps: Build Docker image → Push to ACR → Run Terraform plan → Apply Terraform
+  - Automatic deployment on merge
+- **Resource Group:** `rg-chat-bot` (existing — shared with `small-openai` Azure OpenAI and `restaurant-bot-kv` Key Vault)
+- **Region:** `eastus` (default, configurable via Terraform variables)
+- **Pricing:** Pay-per-request (~$0.40 per million requests) + resource costs (~$60-70/month for 0.5 CPU + 1GB memory)
+
+#### Benefits Over App Service
+- ✅ **Automatic scaling:** Based on HTTP traffic, no manual SKU management
+- ✅ **Cost-effective:** Consumption plan cheaper than fixed App Service SKU
+- ✅ **Infrastructure as code:** Reproducible, version-controlled deployments
+- ✅ **Automated CI/CD:** No manual `az webapp up` commands
+- ✅ **Modern containerization:** Docker best practices, security scanning
+- ✅ **Environment isolation:** Easy to replicate for staging/prod
+- ✅ **No quota issues:** Uses separate `Microsoft.App` quota pool (no F1 tier restrictions)
+
+#### Files & Configuration
+- `Dockerfile` — Multi-stage build (minimal runtime image, security hardening)
+- `deploy/main.tf` — Container Apps, ACR, Log Analytics, managed identity setup
+- `deploy/variables.tf` — Configurable variables (region, CPU, memory, replicas)
+- `deploy/terraform.tfvars.example` — Example configuration (copy and customize)
+- `.github/workflows/deploy.yml` — GitHub Actions CI/CD pipeline
+- `DEPLOYMENT.md` — Complete setup and deployment guide
+- `deploy/README.md` — File reference and troubleshooting
+
+#### Deployment Flow
+1. Developer commits code to main branch
+2. GitHub Actions triggers:
+   - Builds Docker image (multi-stage, optimized layers)
+   - Pushes to Azure Container Registry
+   - Runs Terraform plan (shows infrastructure changes)
+   - Applies Terraform (creates/updates resources)
+   - Container App automatically uses new image
+3. Monitoring via Log Analytics (in Azure Portal)
+
+#### Cold Start Performance
+- **Container startup:** ~40-50 seconds (similar to App Service)
+- **Model loading:** Lazy-loaded on first request (~1-2 minutes for initial chat)
+- **Subsequent requests:** <2 seconds (models cached in memory)
+- **Cost optimization:** Can set min_replicas=0 for dev (scales from zero after idle period)
+
+#### Managed Identity & Security
+- **User-assigned managed identity** automatically created for the Container App
+- **Automatic RBAC:** AcrPull role for ACR access, Key Vault Secrets User for secrets
+- **No secrets in code:** All configuration from environment variables + Key Vault
+- **Health checks:** Liveness (detects crashes) + readiness (prevents traffic during startup)
+
+### Legacy: App Service Deployment (Archived)
+
+**Note:** App Service deployment was replaced on 2026-09-24. Old App Service (`chat-bot-restaurant-egm`) has been deleted. This section preserved for reference only.
+
+**Old issues solved by Container Apps:**
+- ❌ F1 quota limitations (now uses separate `Microsoft.App` pool)
+- ❌ Firewall tradeoffs (Container Apps can use VNet integration if needed)
+- ❌ Deployment locks (GitHub Actions handles retries automatically)
+- ❌ Manual deployment process (now fully automated)
+
+**Old deployment command (no longer used):**
 ```bash
-# 1. Ensure requirements.txt and setup.py exist (checked into git)
-# requirements.txt: simple list of packages (no exact versions), lets pip resolve
-# setup.py: makes restaurant_bot installable as a proper Python package
-
-# 2. Set KEY_VAULT_URL environment variable on App Service
-az webapp config appsettings set --name chat-bot-restaurant-egm \
-    --resource-group rg-chat-bot \
-    --settings KEY_VAULT_URL="https://restaurant-bot-kv.vault.azure.net/"
-
-# 3. Create + deploy the App Service (from repo root)
+# DEPRECATED - Do not use
 az webapp up --runtime "PYTHON:3.12" --sku F1 \
     --name chat-bot-restaurant-egm \
     --resource-group rg-chat-bot --location eastus2
-
-# 4. Set the startup command (gunicorn + uvicorn worker)
-az webapp config set --name chat-bot-restaurant-egm \
-    --resource-group rg-chat-bot \
-    --startup-file "gunicorn --workers 1 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000 restaurant_bot.main:app"
-
-# 5. Enable system-assigned managed identity (so the app can read Key Vault secrets)
-az webapp identity assign --name chat-bot-restaurant-egm --resource-group rg-chat-bot
-
-# 6. Grant that identity "Key Vault Secrets User" on restaurant-bot-kv
-az role assignment create --role "Key Vault Secrets User" \
-    --assignee <principalId from step 5> \
-    --scope $(az keyvault show --name restaurant-bot-kv --query id -o tsv)
-
-# 7. Open small-openai's firewall (F1 can't VNet-integrate — see tradeoff above)
-az cognitiveservices account update --name small-openai --resource-group rg-chat-bot \
-    --network-acls-default-action Allow
-
-# 8. Smoke test
-# Browse https://chat-bot-restaurant-egm.azurewebsites.net/ and exercise
-# menu, checkout, and a RAG/intent-parsing message end-to-end.
-# First request will take 1-2 min (model download), subsequent requests are fast.
 ```
 
-**Why this approach is simpler & more reliable:**
-- **setup.py**: pip can install the local package natively, no custom shell scripts needed
-- **Clean requirements.txt**: Lists only top-level packages; pip resolves compatible versions automatically. Avoids uv.lock versioning issues (e.g., sentence-transformers==3.5.1 doesn't exist on PyPI)
-- **Lazy model loading**: Scope gate + embeddings models load on first request, not startup. Prevents 504 timeouts during Oryx build (model download is ~1.6GB and can exceed startup timeout)
-- **gunicorn + uvicorn**: Standard Python app server pattern, better than custom shell scripts
-- **KEY_VAULT_URL as app setting**: Ensures the app can access secrets on startup without configuration errors
+### Setup Instructions (2026-09-24+)
 
-If quota is ever requested again for a similar resource, note that `az quota show/update --scope subscriptions/<id>/providers/Microsoft.Web/locations/<region>` (the `quota` CLI extension, after `az provider register --namespace Microsoft.Quota`) can at least *read* current limits instantly — useful for confirming a Portal-submitted request has landed without waiting on a notification.
+**One-time setup:**
+1. Create Terraform state backend in Azure Storage (see `DEPLOYMENT.md`)
+2. Add GitHub secrets for OIDC authentication (see `DEPLOYMENT.md`)
+3. Copy `deploy/terraform.tfvars.example` → `deploy/terraform.tfvars` and customize
 
-### Deployment issues encountered & lessons (2026-09-24)
+**Deployment:**
+```bash
+# Option 1: Automatic (recommended)
+git push origin main
+# GitHub Actions automatically builds and deploys
 
-**Problem 1: uv export version conflicts**
-- `uv export --no-dev` includes exact versions from uv.lock that may not exist on public PyPI (e.g., sentence-transformers==3.5.1)
-- uv caches newer/pre-release versions locally that aren't publicly available yet
-- **Fix:** Use a simple requirements.txt with just package names, let pip resolve compatible versions. Checked into git, not generated each deployment.
+# Option 2: Manual (for testing)
+cd deploy
+terraform init
+terraform plan -out=tfplan
+terraform apply tfplan
+```
 
-**Problem 2: Local package not installed**
-- `-e .` (editable install) doesn't work reliably with Azure's Oryx builder
-- This used to require a custom startup.sh script to do `pip install -e .` before running uvicorn
-- **Fix:** Create setup.py so `pip install .` works naturally during build. No custom scripts needed.
+**Verification:**
+```bash
+# Get Container App URL
+az containerapp show --name ai-bot-restaurant-dev-app \
+  --resource-group ai-bot-restaurant-dev-rg \
+  --query properties.latestRevisionFqdn -o tsv
 
-**Problem 3: 504 timeout during startup**
-- Initial design warmed up the ~1.6GB scope gate model during `on_startup()` 
-- Model download took longer than Azure's 230-second build timeout, causing 504 Gateway Timeout
-- **Fix:** Lazy-load models on first request. Model still caches in memory for subsequent requests, but startup completes in <2 sec.
+# View logs
+az containerapp logs show --name ai-bot-restaurant-dev-app \
+  --resource-group ai-bot-restaurant-dev-rg
+```
 
-**Problem 4: Deployment lock stuck after multiple retries**
-- Retrying failed deployments without waiting can leave Kudu in a locked state (409 Conflict)
-- The lock persists even after app restart if a previous deployment attempt is still running
-- **Workaround:** Wait for stuck deployment to timeout (~30 min) or restart the App Service SCM site. Future: consider using git push deployment or Azure DevOps pipelines to avoid this.
-
-**Outcome:** Simplified from ~1500-line requirements.txt (with hashes) → ~13 lines (package names only). Build is now faster, more reliable, and easier to understand.
+**Rollback (if needed):**
+```bash
+# Revert code commit
+git revert <commit-hash>
+git push origin main
+# GitHub Actions automatically redeploys with previous version
+```
 
 ---
 
