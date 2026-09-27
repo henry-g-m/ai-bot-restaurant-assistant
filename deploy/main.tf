@@ -44,14 +44,12 @@ resource "azurerm_log_analytics_workspace" "main" {
   retention_in_days   = 30
 }
 
-# Container Apps Environment
+# Container Apps Environment (public - not using VNet integration)
 resource "azurerm_container_app_environment" "main" {
-  name                           = "${var.app_name}-${var.environment}-env"
-  location                       = azurerm_resource_group.main.location
-  resource_group_name            = azurerm_resource_group.main.name
-  log_analytics_workspace_id     = azurerm_log_analytics_workspace.main.id
-  infrastructure_subnet_id       = var.container_app_subnet_id
-  internal_load_balancer_enabled = false
+  name                       = "${var.app_name}-${var.environment}-env"
+  location                   = azurerm_resource_group.main.location
+  resource_group_name        = azurerm_resource_group.main.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 }
 
 # Managed Identity for the Container App
@@ -125,44 +123,21 @@ resource "azurerm_container_app" "main" {
         value = data.azurerm_client_config.current.tenant_id
       }
 
-      liveness_probe {
-        http_get {
-          path   = "/docs"
-          port   = 8000
-          scheme = "HTTP"
-        }
-        initial_delay = 40
-        interval      = 30
-        timeout       = 10
-        failure_count = 3
-      }
-
-      readiness_probe {
-        http_get {
-          path   = "/docs"
-          port   = 8000
-          scheme = "HTTP"
-        }
-        initial_delay = 30
-        interval      = 10
-        timeout       = 5
-        failure_count = 3
-      }
     }
 
     min_replicas = var.min_replicas
     max_replicas = var.max_replicas
+  }
 
-    ingress {
-      allow_insecure_connections = false
-      external_enabled           = true
-      target_port                = 8000
-      transport                  = "auto"
+  ingress {
+    allow_insecure_connections = false
+    external_enabled           = true
+    target_port                = 8000
+    transport                  = "auto"
 
-      traffic_weight {
-        latest_revision = true
-        percentage      = 100
-      }
+    traffic_weight {
+      latest_revision = true
+      percentage      = 100
     }
   }
 

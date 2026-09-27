@@ -29,7 +29,7 @@ The deployment consists of:
 
 ```bash
 # Set variables
-export RG_NAME="your-resource-group"
+export RG_NAME="rg-chat-bot"
 export STORAGE_ACCOUNT="tfrstate$(date +%s%N | md5sum | head -c 8)"
 export CONTAINER_NAME="tfstate"
 
