@@ -51,6 +51,7 @@ def handle_message(session_id: str, message: str, restaurant_id: Literal["chines
     lowered = message.lower()
     replies = _RESTAURANT_REPLIES[restaurant_id]
 
+    #TODO: Replace intention and guardrails with JEV.
     if "menu" in lowered:
         menu = get_menu_by_restaurant(restaurant_id)
         return _format_menu_for_restaurant(menu)
