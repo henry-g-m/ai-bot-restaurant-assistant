@@ -15,6 +15,8 @@ logging.basicConfig(
     level=os.environ.get("LOG_LEVEL", "INFO").upper(),
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
+# Azure SDK logs every HTTP request/response at INFO
+logging.getLogger("azure").setLevel(logging.WARNING)
 
 app = FastAPI()
 

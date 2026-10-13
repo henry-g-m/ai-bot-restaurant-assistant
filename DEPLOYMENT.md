@@ -75,7 +75,19 @@ TF_BACKEND_RG             # Resource group for Terraform state
 TF_BACKEND_STORAGE        # Storage account for Terraform state
 TF_BACKEND_CONTAINER      # Blob container for Terraform state (tfstate)
 TF_BACKEND_KEY            # State file name (e.g., prod.tfstate)
+KEY_VAULT_ID              # Key Vault resource ID (TF_VAR_key_vault_id)
+KEY_VAULT_URL             # Key Vault URL, e.g. https://restaurant-bot-kv.vault.azure.net/ (TF_VAR_key_vault_url)
 ```
+
+And these repository **variables** (Settings > Secrets and variables > Actions > Variables):
+
+```
+MIN_REPLICAS              # Container App minimum replicas, e.g. 0 (TF_VAR_min_replicas)
+MAX_REPLICAS              # Container App maximum replicas, e.g. 2 (TF_VAR_max_replicas)
+```
+
+The deploy job does not use `terraform.tfvars`; Terraform authenticates via the `ARM_*`
+env vars (OIDC, from the `AZURE_*` secrets) and reads its inputs from `TF_VAR_*` env vars.
 
 ### 3. Create Service Principal for GitHub Actions
 
