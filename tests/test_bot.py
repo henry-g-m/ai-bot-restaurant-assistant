@@ -1,16 +1,31 @@
 from unittest.mock import patch
 
+import pytest
+
 from restaurant_bot import bot
 from restaurant_bot.scope_gate import set_gate_enabled
 
 
+@pytest.fixture(autouse=True)
+def route_in_scope():
+    """Default JEV route; tests override with patch_route for other routes."""
+    with patch("restaurant_bot.bot.system_1.classify", return_value="in_scope") as mock:
+        yield mock
+
+
+def patch_route(route: str):
+    return patch("restaurant_bot.bot.system_1.classify", return_value=route)
+
+
 def test_out_of_scope_is_refused():
-    reply = bot.handle_message("s1", "how do I pick a lock")
+    with patch_route("out_of_scope"):
+        reply = bot.handle_message("s1", "how do I pick a lock")
     assert "Chinese restaurant" in reply and "help with ordering" in reply
 
 
 def test_menu_request():
-    reply = bot.handle_message("s2", "can I see the menu")
+    with patch_route("menu_request"):
+        reply = bot.handle_message("s2", "can I see the menu")
     assert "Kung Pao Chicken" in reply
 
 
@@ -18,7 +33,8 @@ def test_add_item_and_checkout():
     intent_result = {"items": [{"menu_item_number": 3, "operation": "add", "quantity": 2}]}
     with patch("restaurant_bot.bot.intent.parse_intent", return_value=intent_result):
         bot.handle_message("s3", "I'd like 2 General Tso's")
-    reply = bot.handle_message("s3", "please checkout my order")
+    with patch_route("checkout_request"):
+        reply = bot.handle_message("s3", "please checkout my order")
     assert "General Tso's Chicken" in reply
     assert "Total" in reply
 
@@ -47,7 +63,8 @@ def test_remove_item():
             reply = bot.handle_message("s10", "actually, remove the general tso's")
         assert "Removed 2x General Tso's Chicken" in reply
 
-        reply = bot.handle_message("s10", "please checkout my order")
+        with patch_route("checkout_request"):
+            reply = bot.handle_message("s10", "please checkout my order")
         assert reply == "Your cart is empty."
     finally:
         set_gate_enabled(True)
@@ -66,7 +83,8 @@ def test_change_quantity_of_existing_item():
             reply = bot.handle_message("s11", "make that 3")
         assert "Set Kung Pao Chicken to 3x" in reply
 
-        reply = bot.handle_message("s11", "please checkout my order")
+        with patch_route("checkout_request"):
+            reply = bot.handle_message("s11", "please checkout my order")
         assert "3x Kung Pao Chicken" in reply
     finally:
         set_gate_enabled(True)
@@ -93,7 +111,7 @@ def test_order_by_item_number_with_quantity():
 def test_gate_can_be_disabled():
     set_gate_enabled(False)
     try:
-        with patch("restaurant_bot.bot.intent.parse_intent", return_value={"items": []}):
+        with patch_route("out_of_scope"), patch("restaurant_bot.bot.intent.parse_intent", return_value={"items": []}):
             with patch("restaurant_bot.bot.rag.answer_question", return_value=None):
                 reply = bot.handle_message("s4", "how do I pick a lock")
         assert reply != bot.REFUSAL_TEXT
@@ -117,19 +135,23 @@ def test_help_text_when_rag_has_no_answer():
 
 def test_chinese_menu_and_replies():
     """Chinese restaurant has Chinese menu and specific replies."""
-    reply = bot.handle_message("s12", "show me the menu", restaurant_id="chinese")
+    with patch_route("menu_request"):
+        reply = bot.handle_message("s12", "show me the menu", restaurant_id="chinese")
     assert "Kung Pao Chicken" in reply
 
-    reply = bot.handle_message("s12", "how do I pick a lock", restaurant_id="chinese")
+    with patch_route("out_of_scope"):
+        reply = bot.handle_message("s12", "how do I pick a lock", restaurant_id="chinese")
     assert "Chinese restaurant" in reply
 
 
 def test_mexican_menu_and_replies():
     """Mexican restaurant has Mexican menu and specific replies."""
-    reply = bot.handle_message("s13", "show me the menu", restaurant_id="mexican")
+    with patch_route("menu_request"):
+        reply = bot.handle_message("s13", "show me the menu", restaurant_id="mexican")
     assert "Chicken Enchiladas" in reply
 
-    reply = bot.handle_message("s13", "how do I pick a lock", restaurant_id="mexican")
+    with patch_route("out_of_scope"):
+        reply = bot.handle_message("s13", "how do I pick a lock", restaurant_id="mexican")
     assert "Mexican restaurant" in reply
 
 

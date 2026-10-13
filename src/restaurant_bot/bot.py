@@ -1,11 +1,11 @@
 import re
 from typing import Literal
 
-from restaurant_bot import intent, rag
+from restaurant_bot import intent, rag, system_1
 from restaurant_bot.config import MENU_PATH
 from restaurant_bot.menu import get_menu_by_restaurant, load_menu
 from restaurant_bot.order import get_or_create_cart
-from restaurant_bot.scope_gate import is_gate_enabled, is_in_scope
+from restaurant_bot.scope_gate import is_gate_enabled
 
 REFUSAL_TEXT = "I can only help with ordering food from this restaurant."
 HELP_TEXT = "Sorry, I didn't understand that. Try asking for the menu, an item, or to checkout."
@@ -51,13 +51,13 @@ def handle_message(session_id: str, message: str, restaurant_id: Literal["chines
     lowered = message.lower()
     replies = _RESTAURANT_REPLIES[restaurant_id]
 
-    #TODO: Replace intention and guardrails with JEV.
-    if "menu" in lowered:
+    route = system_1.classify(message)
+    if route == "menu_request":
         menu = get_menu_by_restaurant(restaurant_id)
         return _format_menu_for_restaurant(menu)
-    if "checkout" in lowered or "confirm" in lowered:
+    if route == "checkout_request":
         return _format_checkout(cart)
-    if is_gate_enabled() and not is_in_scope(message):
+    if route == "out_of_scope" and is_gate_enabled():
         return replies["refusal"]
 
     menu = get_menu_by_restaurant(restaurant_id)

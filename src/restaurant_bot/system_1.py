@@ -1,12 +1,18 @@
+import logging
 import os
-from typesafe_sdk import Noul, NoulCriteria, Score, TypeSafeClient, NoulAnswer, Choice
+import threading
+from typesafe_sdk import Noul, Score, TypeSafeClient, Choice, SystemOneResponse
+
+from restaurant_bot import secrets
+
+logger = logging.getLogger(__name__)
 
 TYPESAFE_MODEL = "jev-latest"
 QUESTIONS_NOUL = {
 "restaurant_operations": "Is the user asking about restaurant operations, such as hours, location, or menu?",
-"menu_request": "Is the user asking for the menu or specific items on the menu?",
+"menu_request": "Is the user asking to see the menu or the list of available dishes?",
 "checkout_request": "Is the user asking to checkout or confirm their order?",
-"out_of_scope": "Is the user asking about something unrelated to ordering food from this restaurant?",
+"out_of_scope": "Is the user asking about something unrelated to this restaurant, its food, ordering, delivery, or its operations? Greetings, thanks, and small talk directed at the restaurant are NOT unrelated.",
 "item_request": "Is the user asking about a specific menu item, such as its ingredients or price?",
 "human_interaction": "Is the user asking to speak with a human or requesting human assistance?",
 "delivery_request": "Is the user asking about delivery options, such as delivery time or fees?",
@@ -52,32 +58,53 @@ questions3 = {
 
 all_questions = {**questions, **questions2, **questions3}
 
-client = TypeSafeClient(
-    api_key=os.environ.get("TYPESAFE_API_KEY", "cache-only"),  # keyless kernels replay the cache
-    timeout=120.0
-)
+_client = None
+_client_lock = threading.Lock()
 
-def evaluate(text: str) -> dict:
-    response = client.system_one(
+def _get_client() -> TypeSafeClient:
+    """Create the client on first use; the key comes from TYPESAFE_API_KEY (local dev) or Key Vault."""
+    global _client
+    if _client is None:
+        with _client_lock:
+            if _client is None:
+                api_key = os.environ.get("TYPESAFE_API_KEY") or secrets.get_secret("typesafe-api-key")
+                _client = TypeSafeClient(api_key=api_key, timeout=10.0)
+    return _client
+
+def evaluate_jev(text: str) -> SystemOneResponse:
+    response = _get_client().system_one(
         state=text,
         questions=all_questions,
         model=TYPESAFE_MODEL)
+    logger.info("JEV response for %r: %s", text, response)
     return response
 
-def route(nouls: dict[str, float], severity: float ) -> str:
+def route(response: SystemOneResponse) -> str:
     """
-    Route the message based on the nouls and severity.
+    Route the message based on the JEV noul answers.
     """
-    if severity > 0.7:
+    nouls = {key: answer.noul for key, answer in response.nouls.items()}
+    if nouls["out_of_scope"] > 0.5:
         return "out_of_scope"
-    elif nouls.get("menu_request", 0) > 0.5:
-        return "menu_request"
-    elif nouls.get("checkout_request", 0) > 0.5:
+    elif nouls["checkout_request"] > 0.5:
         return "checkout_request"
+    elif nouls["menu_request"] > 0.5 and nouls["menu_request"] >= nouls["item_request"]:
+        return "menu_request"
     else:
         return "in_scope"
 
-#Test
-response = evaluate("Can you tell me what time the restaurant opens and closes?")
-print(response)
-print({key: response.answers[key].noul for key in QUESTIONS_NOUL})
+def classify(text: str) -> str:
+    """
+    Evaluate and route the message. Fails open (in_scope) if JEV is unavailable.
+    """
+    try:
+        return route(evaluate_jev(text))
+    except Exception:
+        logger.exception("JEV evaluation failed")
+        return "in_scope"
+
+if __name__ == "__main__":
+    response = evaluate_jev("Can you tell me what time the restaurant opens and closes?")
+    print({key: response.answers[key].noul for key in QUESTIONS_NOUL})
+    print({key: response.answers[key].choice for key in QUESTIONS_CHOICE})
+    print({key: response.answers[key].score for key in QUESTIONS_SCORE})

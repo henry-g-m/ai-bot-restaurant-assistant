@@ -2,8 +2,8 @@ AI Restaurant Ordering Bot (demo)
 ==================================
 
 A small FastAPI app that lets a user order food via chat. Messages are
-gated by a Huggingface zero-shot classifier so the bot only responds to
-restaurant/food-ordering requests; anything else is refused.
+routed by TypeSafe JEV (`system_1.py`), which also gates the bot so it only
+responds to restaurant/food-ordering requests; anything else is refused.
 Features:
 
   The bot extracts a structured cart intent from free-form text using Azure OpenAI tool-calling.
@@ -38,12 +38,12 @@ From the repo root:
      pip install -e ".[dev]"
 
 This installs the local package and all dependencies listed in pyproject.toml
-(fastapi, uvicorn, transformers, torch, pyyaml, pydantic, etc.).
+(fastapi, uvicorn, fastembed, typesafe-sdk, pyyaml, pydantic, etc.).
 
 
 Running locally
 ----------------
-   uvicorn restaurant_bot.main:app --reload
+   
 
 Then open http://127.0.0.1:8000/ in a browser for the chat UI.
 
@@ -211,12 +211,9 @@ Known limitations (by design, demo scope)
 - Item matching by name requires the full item name to appear in the
   message (e.g. "margherita pizza", not just "pizza"). Use the "#<number>"
   form for a more reliable match.
-- Single-word messages (e.g. just "checkout") can occasionally be
-  misclassified as out-of-scope by the zero-shot model since they lack
-  food-related context on their own.
-- The classifier call is synchronous and blocks while running, so
-  concurrent requests are effectively serialized. Fine for a demo, not
-  for production load.
+- The JEV routing call is synchronous and blocks while running. If JEV is
+  unavailable (no typesafe-api-key secret, timeout, API error) messages fail open
+  and are treated as in-scope.
 
 Secrets and Credentials
 ------------------------
