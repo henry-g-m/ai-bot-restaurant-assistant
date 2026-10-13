@@ -100,12 +100,8 @@ jobs:
 
       - name: Terraform Init
         working-directory: deploy
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_STORAGE }}" \
-            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TF_BACKEND_KEY }}"
+        # Backend location comes from deploy/backend.tf (same state as local runs)
+        run: terraform init -input=false
 
       - name: Terraform Plan
         working-directory: deploy
