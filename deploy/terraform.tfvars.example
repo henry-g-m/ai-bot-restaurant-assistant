@@ -3,17 +3,17 @@
 
 subscription_id = "your-subscription-id-here"
 environment     = "dev"
-location        = "eastus"
+location        = "eastus2"
 
 # Reference your existing Key Vault
-key_vault_id  = "/subscriptions/your-subscription-id/resourceGroups/your-rg/providers/Microsoft.KeyVault/vaults/your-keyvault-name"
-key_vault_url = "https://your-keyvault-name.vault.azure.net/"
+key_vault_id  = "/subscriptions/your-subscription-id/resourceGroups/rg-chat-bot/providers/Microsoft.KeyVault/vaults/restaurant-bot-kv"
+key_vault_url = "https://restaurant-bot-kv.vault.azure.net/"
 
-# Container configuration
+# Container configuration (0-2 scaling: idles to zero, cost-optimized for demo)
 container_cpu    = "0.5"
 container_memory = "1.0Gi"
-min_replicas     = 1
-max_replicas     = 3
+min_replicas     = 0
+max_replicas     = 2
 
 # Optional: specify a subnet for Container Apps infrastructure (leave empty for public)
 container_app_subnet_id = ""

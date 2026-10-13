@@ -16,6 +16,11 @@ on:
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+# id-token: write is required for azure/login OIDC federated credentials
+permissions:
+  id-token: write
+  contents: read
+
 env:
   REGISTRY_NAME: ${{ secrets.REGISTRY_NAME }}
   IMAGE_NAME: ai-bot-restaurant
@@ -47,6 +52,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=sha,prefix={{branch}}-
+            type=raw,value=${{ github.sha }}
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
@@ -65,6 +71,18 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     environment: production
+    env:
+      # azurerm provider and backend authenticate via OIDC from these
+      ARM_USE_OIDC: true
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      # Terraform input variables (replaces terraform.tfvars, which is not committed)
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_key_vault_id: ${{ secrets.KEY_VAULT_ID }}
+      TF_VAR_key_vault_url: ${{ secrets.KEY_VAULT_URL }}
+      TF_VAR_min_replicas: ${{ vars.MIN_REPLICAS }}
+      TF_VAR_max_replicas: ${{ vars.MAX_REPLICAS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -82,18 +100,13 @@ jobs:
 
       - name: Terraform Init
         working-directory: deploy
-        run: |
-          terraform init \
-            -backend-config="resource_group_name=${{ secrets.TF_BACKEND_RG }}" \
-            -backend-config="storage_account_name=${{ secrets.TF_BACKEND_STORAGE }}" \
-            -backend-config="container_name=${{ secrets.TF_BACKEND_CONTAINER }}" \
-            -backend-config="key=${{ secrets.TF_BACKEND_KEY }}"
+        # Backend location comes from deploy/backend.tf (same state as local runs)
+        run: terraform init -input=false
 
       - name: Terraform Plan
         working-directory: deploy
         run: |
           terraform plan \
-            -var-file=terraform.tfvars \
             -var="image_tag=${{ github.sha }}" \
             -out=tfplan
 

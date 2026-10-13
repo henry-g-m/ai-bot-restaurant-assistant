@@ -66,12 +66,11 @@ resource "azurerm_role_assignment" "acr_pull" {
   principal_id       = azurerm_user_assigned_identity.main.principal_id
 }
 
-# Key Vault access policy for the managed identity
-resource "azurerm_key_vault_access_policy" "container_app" {
-  key_vault_id       = var.key_vault_id
-  tenant_id          = data.azurerm_client_config.current.tenant_id
-  object_id          = azurerm_user_assigned_identity.main.principal_id
-  secret_permissions = ["Get", "List"]
+# Key Vault read access for the managed identity (the vault uses RBAC authorization)
+resource "azurerm_role_assignment" "kv_secrets_user" {
+  scope                = var.key_vault_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.main.principal_id
 }
 
 # Container App
@@ -123,6 +122,12 @@ resource "azurerm_container_app" "main" {
         value = data.azurerm_client_config.current.tenant_id
       }
 
+      # Selects the user-assigned identity for DefaultAzureCredential (Key Vault access)
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.main.client_id
+      }
+
     }
 
     min_replicas = var.min_replicas
@@ -143,7 +148,7 @@ resource "azurerm_container_app" "main" {
 
   depends_on = [
     azurerm_role_assignment.acr_pull,
-    azurerm_key_vault_access_policy.container_app
+    azurerm_role_assignment.kv_secrets_user
   ]
 }
 

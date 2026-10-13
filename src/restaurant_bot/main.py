@@ -1,3 +1,6 @@
+import logging
+import os
+
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -6,7 +9,14 @@ from restaurant_bot import admin, bot, documents, embeddings, secrets, vector_st
 from restaurant_bot.config import KEY_VAULT_URL, MENU_PATH
 from restaurant_bot.menu import get_menu_by_restaurant, load_menu
 from restaurant_bot.order import get_or_create_cart
-from restaurant_bot.scope_gate import is_gate_enabled, is_in_scope, set_gate_enabled
+from restaurant_bot.scope_gate import is_gate_enabled, set_gate_enabled
+
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "INFO").upper(),
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+# Azure SDK logs every HTTP request/response at INFO
+logging.getLogger("azure").setLevel(logging.WARNING)
 
 app = FastAPI()
 
@@ -51,7 +61,6 @@ class AdminStatusResponse(BaseModel):
 
 class AdminSwitchRestaurantRequest(BaseModel):
     restaurant: str
-    password: str
 
 
 @app.on_event("startup")
@@ -76,8 +85,6 @@ def on_startup() -> None:
     except Exception as e:
         print(f"FATAL: Failed to load admin password from Key Vault: {e}", file=sys.stderr)
         sys.exit(1)
-
-    # Note: scope gate model loads lazily on first request to avoid 504 timeout on Azure startup
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -115,8 +122,6 @@ def admin_status() -> AdminStatusResponse:
 
 @app.post("/admin/switch-restaurant", response_model=AdminStatusResponse)
 def admin_switch_restaurant(request: AdminSwitchRestaurantRequest) -> AdminStatusResponse:
-    if not _verify_admin_password(request.password):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
     try:
         admin.set_active_restaurant(request.restaurant)
     except ValueError as e:
