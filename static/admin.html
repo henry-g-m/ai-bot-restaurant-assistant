@@ -5,72 +5,92 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin Panel - Restaurant Assistant</title>
   <style>
+    :root {
+      --bg: #faf8f5;
+      --surface: #ffffff;
+      --surface-muted: #f4f1ec;
+      --border: #ebe6df;
+      --text: #1f1b16;
+      --text-muted: #78716c;
+      --accent: #ea580c;
+      --accent-hover: #c2410c;
+      --accent-soft: #fff1e8;
+      --radius: 16px;
+      --shadow: 0 1px 2px rgba(31, 27, 22, 0.04), 0 8px 24px rgba(31, 27, 22, 0.06);
+    }
+
     * { box-sizing: border-box; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-      background: #f5f5f5;
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
       margin: 0;
       padding: 0;
-      color: #333;
+      color: var(--text);
+      -webkit-font-smoothing: antialiased;
     }
 
     .container {
-      max-width: 600px;
+      max-width: 640px;
       margin: 0 auto;
-      background: #ffffff;
-      min-height: 100vh;
-      padding: 2rem 1.5rem;
+      padding: 2.5rem 1.25rem;
     }
 
     header {
-      text-align: center;
-      margin-bottom: 2rem;
-      border-bottom: 2px solid #e0e0e0;
-      padding-bottom: 1rem;
+      margin-bottom: 1.75rem;
     }
 
     header h1 {
       margin: 0;
-      font-size: 1.8rem;
-      color: #1a1a1a;
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
     header p {
-      margin: 0.5rem 0 0 0;
+      margin: 0.35rem 0 0 0;
       font-size: 0.9rem;
-      color: #666;
+      color: var(--text-muted);
     }
 
     .panel-section {
-      margin-bottom: 2rem;
+      margin-bottom: 1.25rem;
       padding: 1.5rem;
-      background: #f9f9f9;
-      border: 1px solid #e0e0e0;
-      border-radius: 6px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
     }
 
     .panel-section h2 {
       margin: 0 0 1rem 0;
-      font-size: 1.2rem;
-      color: #1a1a1a;
+      font-size: 1.05rem;
+      font-weight: 600;
     }
 
     .status-info {
-      background: #ffffff;
-      padding: 1rem;
-      border-radius: 4px;
-      margin-bottom: 1rem;
-      border-left: 3px solid #2563eb;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
     }
 
     .status-info p {
-      margin: 0.5rem 0;
-      font-size: 0.95rem;
+      margin: 0;
+      padding: 0.9rem 1rem;
+      background: var(--surface-muted);
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
     }
 
     .status-info strong {
-      color: #1a1a1a;
+      display: block;
+      margin-bottom: 0.2rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--text-muted);
     }
 
     .form-group {
@@ -79,26 +99,30 @@
 
     .form-group label {
       display: block;
-      margin-bottom: 0.5rem;
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
       font-weight: 500;
-      color: #333;
+      color: var(--text);
     }
 
     .form-group input,
     .form-group select {
       width: 100%;
-      padding: 0.75rem;
-      border: 1px solid #d0d0d0;
-      border-radius: 4px;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--surface);
+      color: var(--text);
       font-size: 0.95rem;
       font-family: inherit;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
     }
 
     .form-group input:focus,
     .form-group select:focus {
       outline: none;
-      border-color: #2563eb;
-      box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(234, 88, 12, 0.12);
     }
 
     .button-group {
@@ -109,62 +133,61 @@
 
     button {
       padding: 0.75rem 1.5rem;
-      background: #2563eb;
+      background: var(--accent);
       color: white;
       border: none;
-      border-radius: 4px;
+      border-radius: 999px;
       cursor: pointer;
-      font-weight: 500;
-      font-size: 0.95rem;
-      transition: background 0.2s ease;
+      font-family: inherit;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.15s ease, transform 0.1s ease;
       flex: 1;
       min-width: 150px;
     }
 
     button:hover {
-      background: #1d4ed8;
+      background: var(--accent-hover);
     }
 
     button:active {
-      background: #1e40af;
+      transform: scale(0.98);
     }
 
     button:disabled {
-      background: #ccc;
+      background: #d6d3d1;
       cursor: not-allowed;
+      transform: none;
     }
 
     .button-secondary {
-      background: #666;
+      background: var(--text-muted);
     }
 
     .button-secondary:hover {
-      background: #555;
+      background: var(--text);
     }
 
     .message {
-      padding: 1rem;
-      border-radius: 4px;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
       margin-bottom: 1rem;
-      font-size: 0.95rem;
+      font-size: 0.9rem;
     }
 
     .message.success {
-      background: #d4edda;
-      border: 1px solid #c3e6cb;
-      color: #155724;
+      background: #ecfdf5;
+      color: #047857;
     }
 
     .message.error {
-      background: #f8d7da;
-      border: 1px solid #f5c6cb;
-      color: #721c24;
+      background: #fef2f2;
+      color: #b91c1c;
     }
 
     .message.loading {
-      background: #d1ecf1;
-      border: 1px solid #bee5eb;
-      color: #0c5460;
+      background: var(--accent-soft);
+      color: var(--accent-hover);
     }
 
     .file-input-wrapper {
@@ -176,14 +199,14 @@
 
     .file-input-label {
       display: block;
-      padding: 0.75rem;
-      background: #f0f0f0;
-      border: 2px dashed #d0d0d0;
-      border-radius: 4px;
+      padding: 1.5rem 0.75rem;
+      background: var(--surface-muted);
+      border: 2px dashed var(--border);
+      border-radius: 12px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.2s ease;
-      color: #666;
+      transition: all 0.15s ease;
+      color: var(--text-muted);
     }
 
     .file-input-wrapper input[type="file"] {
@@ -192,43 +215,42 @@
     }
 
     .file-input-wrapper input[type="file"]:focus + .file-input-label {
-      border-color: #2563eb;
-      background: #f9f9f9;
+      border-color: var(--accent);
+      background: var(--accent-soft);
     }
 
     .file-input-wrapper:hover .file-input-label {
-      border-color: #2563eb;
-      background: #f9f9f9;
+      border-color: var(--accent);
+      background: var(--accent-soft);
     }
 
     #file-name {
       display: block;
       margin-top: 0.5rem;
       font-size: 0.85rem;
-      color: #666;
+      color: var(--text-muted);
     }
 
     footer {
-      margin-top: 2rem;
-      padding-top: 1rem;
-      border-top: 1px solid #e0e0e0;
+      margin-top: 1.75rem;
       text-align: center;
       font-size: 0.85rem;
-      color: #666;
+      color: var(--text-muted);
     }
 
     footer a {
-      color: #2563eb;
+      color: var(--text-muted);
       text-decoration: none;
     }
 
     footer a:hover {
-      text-decoration: underline;
+      color: var(--accent);
     }
 
     @media (max-width: 600px) {
-      .container { padding: 1.5rem 1rem; }
-      header h1 { font-size: 1.4rem; }
+      .container { padding: 1.5rem 0.75rem; }
+      header h1 { font-size: 1.35rem; }
+      .status-info { grid-template-columns: 1fr; }
       .button-group { flex-direction: column; }
       button { min-width: auto; }
     }
@@ -237,7 +259,7 @@
 <body>
   <div class="container">
     <header>
-      <h1>🔧 Admin Panel</h1>
+      <h1>Admin Panel</h1>
       <p>Manage restaurants and upload documents</p>
     </header>
 
@@ -260,10 +282,6 @@
           <option value="mexican">🌮 Mexican</option>
         </select>
       </div>
-      <div class="form-group">
-        <label for="admin-password-switch">Admin Password:</label>
-        <input type="password" id="admin-password-switch" placeholder="Enter admin password" />
-      </div>
       <div id="switch-message"></div>
       <div class="button-group">
         <button id="switch-button">Switch Restaurant</button>
@@ -273,7 +291,7 @@
     <!-- Document Upload Section -->
     <div class="panel-section">
       <h2>Upload Documents</h2>
-      <p style="color: #666; font-size: 0.9rem; margin: 0 0 1rem 0;">
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin: 0 0 1rem 0;">
         Upload text or PDF files to enhance the AI with your restaurant information. Documents are indexed and searchable.
       </p>
 

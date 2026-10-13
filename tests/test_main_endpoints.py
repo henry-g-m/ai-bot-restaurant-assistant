@@ -53,26 +53,11 @@ def test_admin_status_endpoint():
     assert data["menu_items_count"] > 0
 
 
-def test_admin_switch_restaurant_requires_password():
-    """POST /admin/switch-restaurant requires valid password."""
-    with patch("restaurant_bot.main._verify_admin_password", return_value=False):
-        response = client.post(
-            "/admin/switch-restaurant",
-            json={"restaurant": "mexican", "password": "wrong"}
-        )
-
-    assert response.status_code == 403
-
-
-def test_admin_switch_restaurant_with_valid_password():
-    """POST /admin/switch-restaurant succeeds with valid password."""
-    with patch("restaurant_bot.main._verify_admin_password", return_value=True):
-        with patch("restaurant_bot.main.admin.set_active_restaurant"):
-            with patch("restaurant_bot.main.admin.get_active_restaurant", return_value="mexican"):
-                response = client.post(
-                    "/admin/switch-restaurant",
-                    json={"restaurant": "mexican", "password": "correct"}
-                )
+def test_admin_switch_restaurant():
+    """POST /admin/switch-restaurant switches without a password."""
+    with patch("restaurant_bot.main.admin.set_active_restaurant"):
+        with patch("restaurant_bot.main.admin.get_active_restaurant", return_value="mexican"):
+            response = client.post("/admin/switch-restaurant", json={"restaurant": "mexican"})
 
     assert response.status_code == 200
     data = response.json()
@@ -81,12 +66,8 @@ def test_admin_switch_restaurant_with_valid_password():
 
 def test_admin_switch_restaurant_invalid_restaurant():
     """POST /admin/switch-restaurant rejects invalid restaurant."""
-    with patch("restaurant_bot.main._verify_admin_password", return_value=True):
-        with patch("restaurant_bot.main.admin.set_active_restaurant", side_effect=ValueError("Invalid")):
-            response = client.post(
-                "/admin/switch-restaurant",
-                json={"restaurant": "invalid", "password": "correct"}
-            )
+    with patch("restaurant_bot.main.admin.set_active_restaurant", side_effect=ValueError("Invalid")):
+        response = client.post("/admin/switch-restaurant", json={"restaurant": "invalid"})
 
     assert response.status_code == 400
 

@@ -61,7 +61,6 @@ class AdminStatusResponse(BaseModel):
 
 class AdminSwitchRestaurantRequest(BaseModel):
     restaurant: str
-    password: str
 
 
 @app.on_event("startup")
@@ -123,8 +122,6 @@ def admin_status() -> AdminStatusResponse:
 
 @app.post("/admin/switch-restaurant", response_model=AdminStatusResponse)
 def admin_switch_restaurant(request: AdminSwitchRestaurantRequest) -> AdminStatusResponse:
-    if not _verify_admin_password(request.password):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid password")
     try:
         admin.set_active_restaurant(request.restaurant)
     except ValueError as e:

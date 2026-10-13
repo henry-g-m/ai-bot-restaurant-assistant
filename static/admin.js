@@ -3,7 +3,6 @@
 const currentRestaurantEl = document.getElementById("current-restaurant");
 const menuCountEl = document.getElementById("menu-count");
 const restaurantSelectSwitch = document.getElementById("restaurant-select");
-const adminPasswordSwitch = document.getElementById("admin-password-switch");
 const switchButton = document.getElementById("switch-button");
 const switchMessageEl = document.getElementById("switch-message");
 
@@ -44,12 +43,6 @@ async function loadStatus() {
 function setupRestaurantSwitch() {
   switchButton.addEventListener("click", async () => {
     const restaurant = restaurantSelectSwitch.value;
-    const password = adminPasswordSwitch.value.trim();
-
-    if (!password) {
-      showMessage(switchMessageEl, "Please enter admin password", "error");
-      return;
-    }
 
     showMessage(switchMessageEl, "Switching restaurant...", "loading");
     switchButton.disabled = true;
@@ -58,7 +51,7 @@ function setupRestaurantSwitch() {
       const response = await fetch("/admin/switch-restaurant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurant, password }),
+        body: JSON.stringify({ restaurant }),
       });
 
       if (!response.ok) {
@@ -70,7 +63,6 @@ function setupRestaurantSwitch() {
       const restaurantName = data.active_restaurant.charAt(0).toUpperCase() + data.active_restaurant.slice(1);
       currentRestaurantEl.textContent = restaurantName;
       menuCountEl.textContent = data.menu_items_count;
-      adminPasswordSwitch.value = "";
       showMessage(switchMessageEl, `✓ Switched to ${restaurantName}`, "success");
     } catch (error) {
       console.error("Switch error:", error);
@@ -105,13 +97,13 @@ function setupFileUpload() {
 
   ["dragenter", "dragover"].forEach((eventName) => {
     fileInputLabel.addEventListener(eventName, () => {
-      fileInputLabel.style.background = "#e8f4f8";
+      fileInputLabel.style.background = "#fff1e8";
     });
   });
 
   ["dragleave", "drop"].forEach((eventName) => {
     fileInputLabel.addEventListener(eventName, () => {
-      fileInputLabel.style.background = "#f9f9f9";
+      fileInputLabel.style.background = "";
     });
   });
 

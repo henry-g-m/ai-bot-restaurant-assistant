@@ -1,0 +1,26 @@
+= Authentication =
+
+Its azure/login step passes only client-id, tenant-id and subscription-id, with no client secret, which only
+works over OIDC. DEPLOYMENT.md even notes clientSecret (not needed, using OIDC instead in modern setup).
+
+
+How the two compare:
+┌─────────────────┬─────────────────────────────────────────────────────────────────────────────────────────────────────────────┬───────────────────────────────────────────────────────────────────────────────────────────┐     
+│                 │                                         Federated credential (OIDC)                                         │                                       Client secret                                       │      
+├─────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────┤
+│ Stored secret   │ None. GitHub issues a short-lived token per run, and Azure trusts it only for this repo and the production  │ A long-lived password stored in GitHub secrets.                                           │
+│                 │ environment.                                                                                                │                                                                                           │
+├─────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────┤
+│ If it leaks     │ There's nothing reusable to leak.                                                                           │ Anyone holding it can sign in as the service principal from anywhere until it expires or  │
+│                 │                                                                                                             │ is revoked.                                                                               │
+├─────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────┤
+│ Expiry /        │ Never expires; nothing to rotate.                                                                           │ Expires (the portal maxes out at 24 months), and CI breaks when it does.                  │
+│ rotation        │                                                                                                             │                                                                                           │
+├─────────────────┼─────────────────────────────────────────────────────────────────────────────────────────────────────────────┼───────────────────────────────────────────────────────────────────────────────────────────┤
+│ Setup           │ More fiddly, as you saw with the immutable-subject format.                                                  │ Simple, and matches your other repos.                                                     │
+└─────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────────────────┴───────────────────────────────────────────────────────────────────────────────────────────┘
+OIDC is the more secure option and is what Microsoft and GitHub now recommend. Consistency with your other repos is a fair reason to prefer a secret, though, especially for a demo.
+If you'd rather use a client secret, the switch is small:
+ 1. Create a client secret on github-actions-container-apps and store it as a GitHub secret, AZURE_CLIENT_SECRET.
+ 2. In deploy.yml, give azure/login the secret via creds, replace ARM_USE_OIDC: true with ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}, and drop the id-token: write permission.
+ 3. You won't need the federated credential.

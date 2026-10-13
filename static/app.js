@@ -6,6 +6,9 @@ const cartEl = document.getElementById("cart");
 const restaurantNameEl = document.getElementById("restaurant-name");
 const restaurantStatusEl = document.getElementById("restaurant-status");
 const adminLink = document.getElementById("admin-link");
+const brandMarkEl = document.getElementById("brand-mark");
+
+const RESTAURANT_ICONS = { chinese: "🥢", mexican: "🌮" };
 
 let currentRestaurant = "chinese";
 
@@ -26,6 +29,7 @@ async function loadRestaurantInfo() {
     const restaurantName = data.active_restaurant.charAt(0).toUpperCase() + data.active_restaurant.slice(1);
     restaurantNameEl.textContent = restaurantName + " Restaurant";
     restaurantStatusEl.textContent = `${data.menu_items_count} items on menu`;
+    brandMarkEl.textContent = RESTAURANT_ICONS[currentRestaurant] || "🍽️";
   } catch (error) {
     console.error("Failed to load restaurant info:", error);
     restaurantStatusEl.textContent = "Unable to load restaurant info";
@@ -60,7 +64,7 @@ function setupChatForm() {
     event.preventDefault();
     const message = chatInput.value.trim();
     if (!message) return;
-    appendMessage("msg-user", `You: ${message}`);
+    appendMessage("msg-user", message);
     chatInput.value = "";
 
     try {
@@ -70,11 +74,11 @@ function setupChatForm() {
         body: JSON.stringify({ session_id: sessionId, message }),
       });
       const data = await response.json();
-      appendMessage("msg-bot", `Bot: ${data.reply}`);
+      appendMessage("msg-bot", data.reply);
       renderCart(data.cart, data.total);
     } catch (error) {
       console.error("Chat error:", error);
-      appendMessage("msg-bot", "Bot: Sorry, I'm having trouble connecting.");
+      appendMessage("msg-bot", "Sorry, I'm having trouble connecting.");
     }
   });
 }
@@ -89,13 +93,13 @@ function appendMessage(className, text) {
 
 function renderCart(cart, total) {
   if (!cart.length) {
-    cartEl.innerHTML = "<h3>🛒 Cart</h3><p>Your cart is empty.</p>";
+    cartEl.innerHTML = "<h3>Your order</h3><p>Your cart is empty.</p>";
     return;
   }
   const lines = cart.map((line) => `${line.quantity}x ${line.name}`);
   const listHtml = lines.map((line) => `<li>${line}</li>`).join("");
   cartEl.innerHTML = `
-    <h3>🛒 Cart</h3>
+    <h3>Your order</h3>
     <ul id="cart-list">${listHtml}</ul>
     <div id="cart-total">Total: $${total.toFixed(2)}</div>
   `;

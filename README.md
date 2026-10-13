@@ -87,9 +87,8 @@ GET /admin/status
     Shows which restaurant is currently active and item count on its menu.
 
 POST /admin/switch-restaurant
-    Body:  {"restaurant": "<chinese|mexican>", "password": "<admin_password>"}
-    Switches the active restaurant (password-gated). Password is stored in 
-    Key Vault under secret name "admin-upload-password".
+    Body:  {"restaurant": "<chinese|mexican>"}
+    Switches the active restaurant (no password required).
 
 GET /admin.html
     Serves the admin panel UI (static/admin.html, static/admin.js).
@@ -123,11 +122,11 @@ field for segregation:
 - Query filters: `WHERE restaurant_id = @restaurant_id OR restaurant_id = "shared"`
 
 ### Admin Panel (http://localhost:8000/admin.html)
-Requires authentication with the admin password (from Key Vault).
+Document uploads require the admin password (from Key Vault).
 
 **Features:**
 - View current active restaurant and menu item count
-- Switch between Chinese and Mexican restaurants (requires password)
+- Switch between Chinese and Mexican restaurants (no password required)
 - Upload document files (.txt or .pdf) for RAG knowledge base
 - Select restaurant for upload (specific or shared across all)
 - Monitor upload status with success/error messages

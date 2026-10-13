@@ -71,12 +71,34 @@ def _get_client() -> TypeSafeClient:
                 _client = TypeSafeClient(api_key=api_key, timeout=10.0)
     return _client
 
+def format_response(text: str, response: SystemOneResponse) -> str:
+    """Render a JEV response as an aligned, human-readable block."""
+    width = max(len(key) for key in all_questions)
+    lines = [
+        f"JEV evaluation for {text!r}",
+        f"  model={response.model} tokens in={response.usage.input_tokens} out={response.usage.output_tokens}",
+        "  Nouls:",
+    ]
+    for key, answer in response.nouls.items():
+        bar = "#" * round(answer.noul * 20)
+        flag = "  <-- yes" if answer.noul > 0.5 else ""
+        lines.append(f"    {key:<{width}}  {answer.noul:.2f}  {bar:<20}{flag}")
+    lines.append("  Choices:")
+    for key, answer in response.choices.items():
+        lines.append(f"    {key:<{width}}  {answer.choice} (confidence {answer.confidence:.2f})")
+    lines.append("  Scores:")
+    for key, answer in response.scores.items():
+        level = max(answer.probabilities, key=answer.probabilities.get)
+        label = str(answer.legend.get(level, level)).split(":")[0]
+        lines.append(f"    {key:<{width}}  {answer.score:.2f}  -> {label} (confidence {answer.confidence:.2f})")
+    return "\n".join(lines)
+
 def evaluate_jev(text: str) -> SystemOneResponse:
     response = _get_client().system_one(
         state=text,
         questions=all_questions,
         model=TYPESAFE_MODEL)
-    logger.info("JEV response for %r: %s", text, response)
+    logger.info("%s", format_response(text, response))
     return response
 
 def route(response: SystemOneResponse) -> str:
@@ -104,7 +126,7 @@ def classify(text: str) -> str:
         return "in_scope"
 
 if __name__ == "__main__":
-    response = evaluate_jev("Can you tell me what time the restaurant opens and closes?")
-    print({key: response.answers[key].noul for key in QUESTIONS_NOUL})
-    print({key: response.answers[key].choice for key in QUESTIONS_CHOICE})
-    print({key: response.answers[key].score for key in QUESTIONS_SCORE})
+    text = "Can you tell me what time the restaurant opens and closes?"
+    response = evaluate_jev(text)
+    print(format_response(text, response))
+    print(f"  Route: {route(response)}")
